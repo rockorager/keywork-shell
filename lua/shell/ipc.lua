@@ -1,0 +1,53 @@
+local dbus = require("keywork.dbus")
+local log = require("keywork.log")
+
+local M = {}
+
+M.name = "dev.rockorager.keywork"
+M.path = "/dev/rockorager/keywork"
+M.interface = "dev.rockorager.keywork"
+
+-- Owns dev.rockorager.keywork on the session bus and exports the shell's
+-- control interface so keybindings can reach the running instance:
+--   keywork-shell launcher   (dbus-send under the hood)
+-- Owning the name also makes the shell single-instance. Returns nil plus
+-- "no-bus" when the session bus is unavailable, or nil plus "name-taken"
+-- when another shell already owns the name.
+function M.serve(handlers)
+  local ok, bus = pcall(function()
+    return dbus.session()
+  end)
+  if not ok or not bus then
+    log.warn("shell ipc disabled: session dbus unavailable")
+    return nil, "no-bus"
+  end
+
+  local name_ok, name = pcall(function()
+    return bus:request_name(M.name, { do_not_queue = true })
+  end)
+  if not name_ok or not name then
+    bus:close()
+    return nil, "name-taken"
+  end
+
+  local exported = bus:export(M.path, {
+    [M.interface] = {
+      methods = {
+        ToggleLauncher = {
+          in_signature = "",
+          call = function()
+            handlers.toggle_launcher()
+          end,
+        },
+      },
+    },
+  })
+
+  return {
+    bus = bus,
+    name = name,
+    exported = exported,
+  }
+end
+
+return M
