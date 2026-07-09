@@ -2,6 +2,7 @@ KEYWORK ?= keywork
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 DATADIR ?= $(PREFIX)/share/keywork-shell
+SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 
 SCRIPT := lua/shell/init.lua
 MODULES := \
@@ -17,8 +18,9 @@ MODULES := \
 	lua/shell/launcher/history.lua \
 	lua/shell/launcher/match.lua
 BIN := keywork-shell
+SERVICE := keywork-shell.service
 
-.PHONY: all check run install clean
+.PHONY: all check run install install-app install-service reload-service clean
 
 all: check
 
@@ -29,11 +31,21 @@ check: $(SCRIPT) $(MODULES)
 run: check
 	LUA_PATH="lua/?.lua;lua/?/init.lua;;" $(KEYWORK) --script=$(SCRIPT)
 
-install: check
+install: install-app install-service
+
+install-app: check
 	install -d $(DATADIR)/lua/shell/bar $(DATADIR)/lua/shell/launcher $(BINDIR)
 	install -m 0644 $(SCRIPT) $(DATADIR)/$(SCRIPT)
 	for file in $(MODULES); do install -m 0644 $$file $(DATADIR)/$$file; done
 	install -m 0755 bin/$(BIN) $(BINDIR)/$(BIN)
+
+install-service:
+	mkdir -p $(SYSTEMD_USER_DIR)
+	cp $(SERVICE) $(SYSTEMD_USER_DIR)/$(SERVICE)
+	systemctl --user daemon-reload
+
+reload-service: install
+	systemctl --user restart $(SERVICE)
 
 clean:
 	rm -rf .build
