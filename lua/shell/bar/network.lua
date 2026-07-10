@@ -2,11 +2,11 @@ local kw = require("keywork")
 local dbus = require("keywork.dbus")
 local log = require("keywork.log")
 local loop = require("keywork.loop")
+local process = require("keywork.process")
 local service = require("keywork.service")
 local util = require("shell.bar.util")
 
 local trim = util.trim
-local capture = util.capture
 local label = util.label
 local status_pill = util.status_pill
 
@@ -222,9 +222,10 @@ local network_service = service.define("shell.bar.network", function(self)
       return
     end
     capture_running = true
-    capture({ "sh", "-c", SHELL_NETWORK_SCRIPT }, function(result)
+    loop.spawn(function()
+      local result = process.capture({ "sh", "-c", SHELL_NETWORK_SCRIPT })
       capture_running = false
-      if result.ok then
+      if result and result.ok then
         local lines = {}
         for line in (result.stdout .. "\n"):gmatch("([^\n]*)\n") do
           table.insert(lines, line)

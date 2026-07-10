@@ -1,6 +1,4 @@
 local kw = require("keywork")
-local loop = require("keywork.loop")
-local process = require("keywork.process")
 
 local M = {}
 
@@ -12,34 +10,6 @@ end
 local function seconds_until_next_minute()
   local now = os.date("*t")
   return 60 - now.sec
-end
-
-local function capture(argv, callback)
-  local proc = process.spawn({
-    argv = argv,
-    stdout = "pipe",
-    stderr = "pipe",
-  })
-  if not proc then
-    return nil
-  end
-  loop.spawn(function()
-    local stdout = {}
-    for chunk in proc:stdout() do
-      table.insert(stdout, chunk)
-    end
-    local stderr = {}
-    for chunk in proc:stderr() do
-      table.insert(stderr, chunk)
-    end
-    local result = proc:wait()
-    if result then
-      result.stdout = table.concat(stdout)
-      result.stderr = table.concat(stderr)
-      callback(result)
-    end
-  end)
-  return proc
 end
 
 local function label(value, palette, color)
@@ -70,7 +40,6 @@ end
 
 M.trim = trim
 M.seconds_until_next_minute = seconds_until_next_minute
-M.capture = capture
 M.label = label
 M.status_pill = status_pill
 

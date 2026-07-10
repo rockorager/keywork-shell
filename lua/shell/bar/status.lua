@@ -4,11 +4,11 @@ local log = require("keywork.log")
 local loop = require("keywork.loop")
 local process = require("keywork.process")
 local service = require("keywork.service")
+local stream = require("keywork.stream")
 local network = require("shell.bar.network")
 local util = require("shell.bar.util")
 
 local seconds_until_next_minute = util.seconds_until_next_minute
-local capture = util.capture
 local label = util.label
 local status_pill = util.status_pill
 
@@ -109,9 +109,10 @@ local audio_service = service.define("shell.bar.audio", function(self)
       return
     end
     refreshing = true
-    capture({ "wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@" }, function(result)
+    loop.spawn(function()
+      local result = process.capture({ "wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@" })
       refreshing = false
-      if result.ok then
+      if result and result.ok then
         local raw = tonumber(result.stdout:match("Volume:%s*([%d%.]+)")) or 0
         self:publish({
           percent = math.floor(raw * 100 + 0.5),
@@ -137,19 +138,9 @@ local audio_service = service.define("shell.bar.audio", function(self)
     return
   end
 
-  local buffer = ""
-  for chunk in proc:stdout() do
-    buffer = buffer .. chunk
-    while true do
-      local newline = buffer:find("\n", 1, true)
-      if not newline then
-        break
-      end
-      local line = buffer:sub(1, newline - 1)
-      buffer = buffer:sub(newline + 1)
-      if line:find("sink", 1, true) or line:find("server", 1, true) then
-        refresh()
-      end
+  for line in stream.lines(proc:stdout()) do
+    if line:find("sink", 1, true) or line:find("server", 1, true) then
+      refresh()
     end
   end
   local result = proc:wait()
