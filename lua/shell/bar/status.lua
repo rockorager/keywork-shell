@@ -91,7 +91,7 @@ end
 
 local function battery_status_from_values(palette, percentage, state, line_power_online)
   if not percentage then
-    return status_pill(palette, "battery", "battery-level-0", "", palette.muted, { icon_size = 14 })
+    return status_pill(palette, "battery", "battery-level-0", "", palette.muted)
   end
   local capacity = math.max(0, math.min(100, math.floor(percentage + 0.5)))
   local status = upower_state_name(state)
@@ -114,7 +114,7 @@ local function battery_status_from_values(palette, percentage, state, line_power
       name = name .. "-charging"
     end
   elseif status == "Full" then
-    name = "battery-level-100-charged"
+    name = "battery-level-100-plugged-in"
   end
 
   local color = palette.success
@@ -126,8 +126,7 @@ local function battery_status_from_values(palette, percentage, state, line_power
     end
   end
   return status_pill(palette, "battery", name, tostring(capacity) .. "%", color, {
-    icon_size = 14,
-    label_font_size = 12,
+    label_font_size = palette.font_size[1],
   })
 end
 
@@ -136,7 +135,7 @@ local StatusItems = kw.stateful({
     local palette = self.props.colors
     self.volume = status_pill(palette, "volume", "audio-volume-muted", nil, palette.muted)
     self.network = status_pill(palette, "network", "network-wireless-offline", nil, palette.error)
-    self.battery = status_pill(palette, "battery", "battery-level-0", "", palette.muted, { icon_size = 14 })
+    self.battery = status_pill(palette, "battery", "battery-level-0", "", palette.muted)
     self:update_time()
     self:update_volume()
     self:update_network()

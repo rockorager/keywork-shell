@@ -25,6 +25,7 @@ local function palette(theme)
 
     space = theme.space,
     radius = theme.radius,
+    font_size = theme.font_size,
   }
 
   -- Bar chip design in one place: kw.chip reads metrics and colors from
