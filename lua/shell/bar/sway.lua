@@ -1,6 +1,7 @@
 local kw = require("keywork")
 local json = require("keywork.json")
 local loop = require("keywork.loop")
+local service = require("keywork.service")
 local bit = require("bit")
 local util = require("shell.bar.util")
 
@@ -82,15 +83,26 @@ local function drain_sway(client)
   return changed
 end
 
-local function connect_sway(on_change)
-  local path = os.getenv("SWAYSOCK")
-  if not path or path == "" then
-    return nil
-  end
+-- The published snapshot carries the switch command as a closure over the
+-- service's client, so widgets can act without owning the socket.
+local function snapshot(client)
+  return {
+    workspaces = client.workspaces,
+    connected = client.connected,
+    switch = function(name)
+      if client.connected then
+        sway_send(client, IPC_COMMAND, "workspace " .. json.encode(name))
+      end
+    end,
+  }
+end
 
-  local socket = loop.connect(path)
+local sway_service = service.define("shell.bar.sway", function(self)
+  local path = os.getenv("SWAYSOCK")
+  local socket = path and path ~= "" and loop.connect(path) or nil
   if not socket then
-    return nil
+    self:publish({ workspaces = {}, connected = false })
+    return
   end
 
   local client = {
@@ -100,20 +112,19 @@ local function connect_sway(on_change)
     connected = true,
   }
 
-  loop.spawn(function()
-    for chunk in socket:chunks() do
-      client.buffer = client.buffer .. chunk
-      if drain_sway(client) then
-        on_change()
-      end
-    end
-    client.connected = false
-    on_change()
-  end)
   sway_send(client, IPC_GET_WORKSPACES, "")
   sway_send(client, IPC_SUBSCRIBE, '["workspace"]')
-  return client
-end
+  self:publish(snapshot(client))
+
+  for chunk in socket:chunks() do
+    client.buffer = client.buffer .. chunk
+    if drain_sway(client) then
+      self:publish(snapshot(client))
+    end
+  end
+  client.connected = false
+  self:publish(snapshot(client))
+end)
 
 local function workspaces(palette, sway)
   local items = {}
@@ -128,8 +139,8 @@ local function workspaces(palette, sway)
       align = "center",
       padding = { x = palette.space[3] },
       on_tap_down = function()
-        if sway.connected then
-          sway_send(sway, IPC_COMMAND, "workspace " .. json.encode(name))
+        if sway.switch then
+          sway.switch(name)
         end
       end,
     }))
@@ -143,15 +154,10 @@ end
 
 local SwayWorkspaces = kw.stateful({
   init = function(self)
-    self.sway = connect_sway(function()
+    self.sway = sway_service:use(self.scope, function(snap)
+      self.sway = snap
       self:set_state()
-    end) or { buffer = "", workspaces = {}, connected = false }
-  end,
-
-  dispose = function(self)
-    if self.sway.socket then
-      self.sway.socket:close()
-    end
+    end) or { workspaces = {}, connected = true }
   end,
 
   build = function(self)
