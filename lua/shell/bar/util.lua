@@ -64,9 +64,7 @@ local function status_pill(palette, id, icon_name, text, color, options)
     theme = palette.chip_theme,
     child = child,
     align = "center",
-    on_tap = function()
-      print("clicked " .. id)
-    end,
+    on_tap = options.on_tap,
   })
 end
 
