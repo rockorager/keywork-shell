@@ -10,7 +10,6 @@ local seconds_until_next_minute = util.seconds_until_next_minute
 local capture = util.capture
 local label = util.label
 local status_pill = util.status_pill
-local dbus_entries_to_table = util.dbus_entries_to_table
 
 local UPOWER = "org.freedesktop.UPower"
 local UPOWER_DEVICE = "org.freedesktop.UPower.Device"
@@ -212,7 +211,7 @@ local StatusItems = kw.stateful({
         return
       end
       self:set_state(function(state)
-        state:apply_battery_properties(path, dbus_entries_to_table((reply.args or {})[1]))
+        state:apply_battery_properties(path, (reply.args or {})[1] or {})
         state:update_battery_widget()
       end)
     end)
@@ -271,7 +270,7 @@ local StatusItems = kw.stateful({
 
   apply_battery_signal = function(self, signal)
     if signal.member == "PropertiesChanged" and (signal.args or {})[1] == UPOWER_DEVICE then
-      self:apply_battery_properties(signal.path or "", dbus_entries_to_table(signal.args[2]))
+      self:apply_battery_properties(signal.path or "", signal.args[2] or {})
       self:update_battery_widget()
     elseif signal.member == "DeviceAdded" or signal.member == "DeviceRemoved" or signal.member == "Changed" then
       self:update_battery()

@@ -2,9 +2,6 @@ local kw = require("keywork")
 local dbus = require("keywork.dbus")
 local log = require("keywork.log")
 local loop = require("keywork.loop")
-local util = require("shell.bar.util")
-
-local dbus_entries_to_table = util.dbus_entries_to_table
 
 local DBUS_PROPERTIES = "org.freedesktop.DBus.Properties"
 local DBUS = "org.freedesktop.DBus"
@@ -115,7 +112,7 @@ local function create_tray_host(on_change)
         self:remove_item(item.id)
         return
       end
-      local props = dbus_entries_to_table((reply.args or {})[1] or {})
+      local props = (reply.args or {})[1] or {}
       item.category = props.Category
       item.title = props.Title
       item.status = props.Status or item.status
@@ -173,7 +170,7 @@ local function create_tray_host(on_change)
     loop.spawn(function()
       for signal in item.properties_sub:events() do
         if (signal.args or {})[1] == SNI_ITEM then
-          local changed = dbus_entries_to_table((signal.args or {})[2] or {})
+          local changed = (signal.args or {})[2] or {}
           if changed.Status ~= nil then item.status = changed.Status end
           if changed.IconName ~= nil then item.icon_name = changed.IconName end
           if changed.IconPixmap ~= nil then item.icon_pixmap = changed.IconPixmap end

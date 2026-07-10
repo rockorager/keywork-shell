@@ -68,21 +68,10 @@ local function status_pill(palette, id, icon_name, text, color, options)
   })
 end
 
-local function dbus_entries_to_table(entries)
-  local result = {}
-  for _, entry in ipairs(entries or {}) do
-    if type(entry) == "table" and entry[1] ~= nil then
-      result[entry[1]] = entry[2]
-    end
-  end
-  return result
-end
-
 M.trim = trim
 M.seconds_until_next_minute = seconds_until_next_minute
 M.capture = capture
 M.label = label
 M.status_pill = status_pill
-M.dbus_entries_to_table = dbus_entries_to_table
 
 return M

@@ -8,7 +8,6 @@ local trim = util.trim
 local capture = util.capture
 local label = util.label
 local status_pill = util.status_pill
-local dbus_entries_to_table = util.dbus_entries_to_table
 
 local DBUS_PROPERTIES = "org.freedesktop.DBus.Properties"
 local DBUS_OBJECT_MANAGER = "org.freedesktop.DBus.ObjectManager"
@@ -119,10 +118,9 @@ local Network = kw.stateful({
       if not managed_objects then
         return -- no iwd on this system; the shell fallback stays
       end
-      for _, entry in ipairs(managed_objects or {}) do
-        local interfaces = dbus_entries_to_table(entry[2])
+      for path, interfaces in pairs(managed_objects or {}) do
         if interfaces[IWD_STATION] then
-          self.iwd_station = entry[1]
+          self.iwd_station = path
           break
         end
       end
@@ -206,7 +204,7 @@ local Network = kw.stateful({
       end)
       return
     end
-    local props = dbus_entries_to_table((reply.args or {})[1])
+    local props = (reply.args or {})[1] or {}
     local connected_path = props.ConnectedNetwork
     if props.State ~= "connected" or not connected_path then
       self:set_state(function(state)
@@ -224,7 +222,7 @@ local Network = kw.stateful({
     })
     local essid = ""
     if network_reply then
-      essid = dbus_entries_to_table((network_reply.args or {})[1]).Name or ""
+      essid = ((network_reply.args or {})[1] or {}).Name or ""
     end
     local function apply()
       self:set_state(function(state)
@@ -303,10 +301,9 @@ local Network = kw.stateful({
     end)
   end,
 
-  -- Coalesces concurrent refresh requests. A fetch does N D-Bus GetAll
-  -- calls and can still be in flight when Scanning flips or InterfacesAdded
-  -- fires; dropping those would leave the menu stuck on a partial list
-  -- until the next open.
+  -- Coalesces concurrent refresh requests. A fetch can still be in flight
+  -- when Scanning flips or InterfacesAdded fires; dropping those would leave
+  -- the menu stuck on a partial list until the next open.
   refresh_wifi_list = function(self)
     if self.wifi_fetching then
       self.wifi_refresh_pending = true
@@ -333,39 +330,49 @@ local Network = kw.stateful({
       end)
       return
     end
-    local station_reply = bus:call({
-      destination = IWD,
-      path = self.iwd_station,
-      interface = DBUS_PROPERTIES,
-      member = "GetAll",
-      args = { IWD_STATION },
-      timeout_ms = 1000,
-    })
-    local scanning = station_reply
-      and dbus_entries_to_table((station_reply.args or {})[1]).Scanning == true
-    local ordered_reply = bus:call({
+    local ordered_reply, ordered_err = bus:call({
       destination = IWD,
       path = self.iwd_station,
       interface = IWD_STATION,
       member = "GetOrderedNetworks",
       timeout_ms = 3000,
     })
+    if not ordered_reply then
+      log.warn("iwd GetOrderedNetworks failed", ordered_err or "unknown")
+      return -- retain the last good snapshot on transient D-Bus failures
+    end
+    -- Get all network metadata in one call instead of issuing a GetAll for
+    -- every row. GetOrderedNetworks is still needed for order and strength.
+    local managed_reply, managed_err = bus:call({
+      destination = IWD,
+      path = "/",
+      interface = DBUS_OBJECT_MANAGER,
+      member = "GetManagedObjects",
+      timeout_ms = 3000,
+    })
+    if not managed_reply then
+      log.warn("iwd GetManagedObjects failed", managed_err or "unknown")
+      return -- retain the last good snapshot on transient D-Bus failures
+    end
+    local scanning = false
+    local network_props = {}
+    for path, interfaces in pairs((managed_reply.args or {})[1] or {}) do
+      if path == self.iwd_station and interfaces[IWD_STATION] then
+        scanning = interfaces[IWD_STATION].Scanning == true
+      end
+      if interfaces[IWD_NETWORK] then
+        network_props[path] = interfaces[IWD_NETWORK]
+      end
+    end
     local networks = {}
-    for i, entry in ipairs(ordered_reply and (ordered_reply.args or {})[1] or {}) do
+    local ordered_networks = (ordered_reply.args or {})[1] or {}
+    for i, entry in ipairs(ordered_networks) do
       if i > 12 then
         break
       end
       local path = entry[1]
-      local props_reply = bus:call({
-        destination = IWD,
-        path = path,
-        interface = DBUS_PROPERTIES,
-        member = "GetAll",
-        args = { IWD_NETWORK },
-        timeout_ms = 1000,
-      })
-      if props_reply then
-        local props = dbus_entries_to_table((props_reply.args or {})[1])
+      local props = network_props[path]
+      if props then
         table.insert(networks, {
           path = path,
           name = props.Name or "?",
