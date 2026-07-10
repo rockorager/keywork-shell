@@ -61,6 +61,11 @@ local function dismiss(self)
   end
 end
 
+-- Serial keeps transient unit names unique when the same app is launched
+-- twice in the same second; the timestamp keeps them unique across shell
+-- restarts (old units stay around as long as the app runs).
+local launch_serial = 0
+
 local function launch(self, entry)
   if not entry then
     return
@@ -71,11 +76,29 @@ local function launch(self, entry)
     command = terminal .. " -e " .. command
   end
   history.bump(self.counts, entry.id)
-  -- Wait for setsid to fork before closing the launcher window;
-  -- dismissing immediately could cancel the process while it is still
-  -- responsible for launching the app.
+  -- Launch into a transient systemd user unit so the app lives outside
+  -- keywork-shell.service's cgroup — otherwise restarting the shell kills
+  -- everything it ever launched. ExitType=cgroup keeps the unit alive for
+  -- apps whose first process forks and exits (browsers, electron).
+  launch_serial = launch_serial + 1
+  local slug = (entry.id or "app"):gsub("%.desktop$", ""):gsub("[^%w%-]", "-")
+  local unit = ("app-keywork-%s-%d-%d"):format(slug, os.time(), launch_serial)
   local launch_command = "exec " .. command .. " </dev/null >/dev/null 2>&1"
-  local proc = process.spawn({ argv = { "setsid", "-f", "sh", "-c", launch_command } })
+  -- Wait for systemd-run to start the unit before closing the launcher
+  -- window; dismissing immediately could cancel the spawn mid-flight.
+  local proc = process.spawn({ argv = {
+    "systemd-run",
+    "--user",
+    "--collect",
+    "--slice=app.slice",
+    "--property=ExitType=cgroup",
+    "--unit=" .. unit,
+    "--description=" .. (entry.name or slug),
+    "--",
+    "sh",
+    "-c",
+    launch_command,
+  } })
   if proc then
     loop.spawn(function()
       proc:wait()
