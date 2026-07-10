@@ -13,6 +13,11 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **Auto-sized popups didn't resize when their content changed.** The Wi-Fi
+  menu rebuilt with newly discovered rows, but its `xdg_popup` retained the
+  height measured when it opened and clipped them. Fixed in keywork: dirty
+  parent-owned popup content is remeasured and size changes are applied with
+  `xdg_popup.reposition`.
 - **Clicking parent-window empty space didn't dismiss anchored popups.**
   Fixed in keywork: a press on the parent surface outside every live
   popup's anchor calls the popups' `on_close` and consumes the press
