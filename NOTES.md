@@ -11,14 +11,6 @@ Fix these in `../keywork`, then simplify here.
   `window bar:HEADLESS-1: creation failed: error.DispatchFailed`. Pointer
   binding should follow `wl_seat.capabilities` instead of being assumed.
 
-## Heads-up (not bugs)
-
-- **Keywork dropped its bundled phosphor icon theme** (`ebbd9e82`): icon
-  names now resolve through standard XDG lookup (Adwaita by default), so
-  only freedesktop names work — e.g. `object-select` (check),
-  `network-wireless-encrypted` (lock). Bare phosphor names like `check`
-  and `lock` render as the missing-icon box.
-
 ## Resolved
 
 - **Clicking parent-window empty space didn't dismiss anchored popups.**
