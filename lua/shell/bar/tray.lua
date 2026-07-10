@@ -3,8 +3,6 @@ local dbus = require("keywork.dbus")
 local log = require("keywork.log")
 local loop = require("keywork.loop")
 
-local DBUS_PROPERTIES = "org.freedesktop.DBus.Properties"
-local DBUS = "org.freedesktop.DBus"
 local SNI_WATCHER = "org.kde.StatusNotifierWatcher"
 local SNI_WATCHER_PATH = "/StatusNotifierWatcher"
 local SNI_ITEM = "org.kde.StatusNotifierItem"
@@ -83,8 +81,8 @@ local function create_tray_host(on_change)
     if item.signal_sub then
       item.signal_sub:cancel()
     end
-    if item.properties_sub then
-      item.properties_sub:cancel()
+    if item.observer then
+      item.observer:cancel()
     end
     self.items[id] = nil
     for index, existing in ipairs(self.item_order) do
@@ -97,40 +95,13 @@ local function create_tray_host(on_change)
     self:changed()
   end
 
-  function host:read_item(item)
-    loop.spawn(function()
-      local reply, err = self.bus:call({
-        destination = item.service,
-        path = item.path,
-        interface = DBUS_PROPERTIES,
-        member = "GetAll",
-        args = { dbus.string(SNI_ITEM) },
-        timeout_ms = 1000,
-      })
-      if not reply then
-        log.warn("tray item GetAll failed", item.id, err or "unknown")
-        self:remove_item(item.id)
-        return
-      end
-      local props = (reply.args or {})[1] or {}
-      item.category = props.Category
-      item.title = props.Title
-      item.status = props.Status or item.status
-      item.icon_name = props.IconName or item.icon_name
-      item.icon_pixmap = props.IconPixmap
-      item.tooltip = props.ToolTip
-      item.menu = props.Menu
-      self:changed()
-    end)
-  end
-
   function host:register_item(sender, service_or_path)
     local id, service, path = canonical_tray_item(sender, service_or_path)
     if not id then
       return
     end
     if self.items[id] then
-      self:read_item(self.items[id])
+      self.items[id].observer:refresh()
       return
     end
     log.info("tray item registered", id)
@@ -143,6 +114,34 @@ local function create_tray_host(on_change)
     self.items[id] = item
     table.insert(self.item_order, id)
 
+    -- The observer owns the snapshot, PropertiesChanged merge, and owner
+    -- tracking; the item is removed when its service leaves the bus.
+    item.observer = self.bus:observe({
+      destination = service,
+      path = path,
+      interface = SNI_ITEM,
+      timeout_ms = 1000,
+    })
+    loop.spawn(function()
+      for event in item.observer:changes() do
+        if not event.available then
+          self:remove_item(item.id)
+          return
+        end
+        local props = event.props
+        item.category = props.Category
+        item.title = props.Title
+        item.status = props.Status or "Active"
+        item.icon_name = props.IconName
+        item.icon_pixmap = props.IconPixmap
+        item.tooltip = props.ToolTip
+        item.menu = props.Menu
+        self:changed()
+      end
+    end)
+
+    -- StatusNotifierItems announce changes with custom signals rather
+    -- than PropertiesChanged; each one forces a fresh snapshot.
     item.signal_sub = self.bus:subscribe({
       sender = service,
       path = path,
@@ -156,33 +155,11 @@ local function create_tray_host(on_change)
           or signal.member == "NewOverlayIcon"
           or signal.member == "NewToolTip"
           or signal.member == "NewStatus" then
-          self:read_item(item)
+          item.observer:refresh()
         end
       end
     end)
 
-    item.properties_sub = self.bus:subscribe({
-      sender = service,
-      path = path,
-      interface = DBUS_PROPERTIES,
-      member = "PropertiesChanged",
-    })
-    loop.spawn(function()
-      for signal in item.properties_sub:events() do
-        if (signal.args or {})[1] == SNI_ITEM then
-          local changed = (signal.args or {})[2] or {}
-          if changed.Status ~= nil then item.status = changed.Status end
-          if changed.IconName ~= nil then item.icon_name = changed.IconName end
-          if changed.IconPixmap ~= nil then item.icon_pixmap = changed.IconPixmap end
-          if changed.Title ~= nil then item.title = changed.Title end
-          if changed.ToolTip ~= nil then item.tooltip = changed.ToolTip end
-          if changed.Menu ~= nil then item.menu = changed.Menu end
-          self:changed()
-        end
-      end
-    end)
-
-    self:read_item(item)
     self:emit("StatusNotifierItemRegistered", id)
     self:changed()
   end
@@ -228,7 +205,6 @@ local function create_tray_host(on_change)
     end
     if self.name then self.name:release() end
     if self.exported then self.exported:unexport() end
-    if self.owner_sub then self.owner_sub:cancel() end
     if self.bus then self.bus:close() end
   end
 
@@ -288,28 +264,6 @@ local function create_tray_host(on_change)
       },
     },
   })
-
-  host.owner_sub = bus:subscribe({
-    sender = DBUS,
-    path = "/org/freedesktop/DBus",
-    interface = DBUS,
-    member = "NameOwnerChanged",
-  })
-  loop.spawn(function()
-    for signal in host.owner_sub:events() do
-      local args = signal.args or {}
-      local name = args[1]
-      local old_owner = args[2]
-      local new_owner = args[3]
-      if old_owner ~= "" and new_owner == "" then
-        for id, item in pairs(host.items) do
-          if item.service == name or item.service == old_owner then
-            host:remove_item(id)
-          end
-        end
-      end
-    end
-  end)
 
   host:emit("StatusNotifierHostRegistered")
   return host
