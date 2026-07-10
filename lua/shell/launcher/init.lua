@@ -156,9 +156,18 @@ end
 local function result_row(self, index, entry, theme)
   local selected = index == self.selected
   local subtitle = entry.generic_name or entry.comment or ""
-  return kw.gesture({
+  return kw.pressable({
     id = "result-" .. entry.id,
-    hover_background = not selected and theme.colors.fill_secondary or nil,
+    -- Raycast model: one highlight. Pointer hover moves the selection
+    -- instead of painting a second hover state; keyboard and mouse
+    -- drive the same index. Hover only fires on real pointer motion,
+    -- so keyboard-driven list scrolling can't yank the selection back.
+    on_hover = function(hovered)
+      if hovered and self.selected ~= index then
+        self.selected = index
+        self:set_state()
+      end
+    end,
     on_tap = function()
       launch(self, entry)
     end,
