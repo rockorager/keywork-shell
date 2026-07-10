@@ -14,7 +14,6 @@ local status_pill = util.status_pill
 
 local UPOWER = "org.freedesktop.UPower"
 local UPOWER_DEVICE = "org.freedesktop.UPower.Device"
-local DBUS_PROPERTIES = "org.freedesktop.DBus.Properties"
 local DISPLAY_DEVICE = "/org/freedesktop/UPower/devices/DisplayDevice"
 
 local TIME_FORMAT = "%a %b %d  %I:%M %p"
@@ -158,54 +157,22 @@ local battery_service = service.define("shell.bar.battery", function(self)
     return
   end
 
-  local sub_ok, sub = pcall(function()
-    return bus:subscribe({
-      path_namespace = "/org/freedesktop/UPower",
-    })
-  end)
-  if not sub_ok or not sub then
-    log.warn("battery dbus subscribe failed")
-    return
-  end
-
-  local percentage, state
-
-  local function apply(path, props)
-    if path ~= DISPLAY_DEVICE then
-      return
-    end
-    if props.Percentage ~= nil then
-      percentage = props.Percentage
-    end
-    if props.State ~= nil then
-      state = props.State
-    end
-    self:publish({ percentage = percentage, state = state })
-  end
-
-  local function read_display_device()
-    local reply, err = bus:call({
-      destination = UPOWER,
-      path = DISPLAY_DEVICE,
-      interface = DBUS_PROPERTIES,
-      member = "GetAll",
-      args = { UPOWER_DEVICE },
-      timeout_ms = 1000,
-    })
-    if not reply then
-      log.warn("battery dbus properties failed", err or DISPLAY_DEVICE)
-      return
-    end
-    apply(DISPLAY_DEVICE, (reply.args or {})[1] or {})
-  end
-
-  read_display_device()
-
-  for signal in sub:events() do
-    if signal.member == "PropertiesChanged" and (signal.args or {})[1] == UPOWER_DEVICE then
-      apply(signal.path or "", signal.args[2] or {})
-    elseif signal.member == "DeviceAdded" or signal.member == "DeviceRemoved" or signal.member == "Changed" then
-      read_display_device()
+  -- The observer resyncs on UPower restarts and reports unavailable while
+  -- the daemon is down, so no manual GetAll/signal plumbing is needed.
+  local obs = bus:observe({
+    destination = UPOWER,
+    path = DISPLAY_DEVICE,
+    interface = UPOWER_DEVICE,
+    timeout_ms = 1000,
+  })
+  for event in obs:changes() do
+    if event.available then
+      self:publish({
+        percentage = event.props.Percentage,
+        state = event.props.State,
+      })
+    else
+      self:publish({})
     end
   end
 end)
