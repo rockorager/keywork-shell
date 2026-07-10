@@ -90,17 +90,128 @@ local network_service = service.define("shell.bar.network", function(self)
 
   local net = { bus = nil, station = nil, percent = nil }
 
-  -- The snapshot carries the monitor internals that widget menu operations
-  -- (scan, list, connect) need, so widgets act through their latest
-  -- snapshot instead of a module-level side channel.
+  -- Commands published with the snapshot. They are plain closures over the
+  -- service's bus and run on the caller's task, so a disposed widget
+  -- abandons its own in-flight calls.
+
+  local function scan()
+    if not net.bus or not net.station then
+      return
+    end
+    -- Errors here are usually "already scanning"; the results land via
+    -- the Scanning PropertiesChanged signal either way.
+    net.bus:call({
+      destination = IWD,
+      path = net.station,
+      interface = IWD_STATION,
+      member = "Scan",
+      timeout_ms = 2000,
+    })
+  end
+
+  -- Returns { networks, scanning } or nil on transient D-Bus failures so
+  -- callers can retain their last good snapshot.
+  local function list()
+    local bus, station = net.bus, net.station
+    if not bus or not station then
+      return nil
+    end
+    local ordered_reply, ordered_err = bus:call({
+      destination = IWD,
+      path = station,
+      interface = IWD_STATION,
+      member = "GetOrderedNetworks",
+      timeout_ms = 3000,
+    })
+    if not ordered_reply then
+      log.warn("iwd GetOrderedNetworks failed", ordered_err or "unknown")
+      return nil
+    end
+    -- Get all network metadata in one call instead of issuing a GetAll for
+    -- every row. GetOrderedNetworks is still needed for order and strength.
+    local managed_reply, managed_err = bus:call({
+      destination = IWD,
+      path = "/",
+      interface = DBUS_OBJECT_MANAGER,
+      member = "GetManagedObjects",
+      timeout_ms = 3000,
+    })
+    if not managed_reply then
+      log.warn("iwd GetManagedObjects failed", managed_err or "unknown")
+      return nil
+    end
+    local scanning = false
+    local network_props = {}
+    for path, interfaces in pairs((managed_reply.args or {})[1] or {}) do
+      if path == station and interfaces[IWD_STATION] then
+        scanning = interfaces[IWD_STATION].Scanning == true
+      end
+      if interfaces[IWD_NETWORK] then
+        network_props[path] = interfaces[IWD_NETWORK]
+      end
+    end
+    local networks = {}
+    for i, entry in ipairs((ordered_reply.args or {})[1] or {}) do
+      if i > 12 then
+        break
+      end
+      local path = entry[1]
+      local props = network_props[path]
+      if props then
+        table.insert(networks, {
+          path = path,
+          name = props.Name or "?",
+          secured = props.Type ~= nil and props.Type ~= "open",
+          known = props.KnownNetwork ~= nil,
+          connected = props.Connected == true,
+          percent = dbm_to_percent((tonumber(entry[2]) or -10000) / 100),
+        })
+      end
+    end
+    return { networks = networks, scanning = scanning }
+  end
+
+  local function connect(entry)
+    local bus, station = net.bus, net.station
+    if not bus or not station then
+      return nil, "iwd unavailable"
+    end
+    local reply, err
+    if entry.connected then
+      reply, err = bus:call({
+        destination = IWD,
+        path = station,
+        interface = IWD_STATION,
+        member = "Disconnect",
+        timeout_ms = 10000,
+      })
+    else
+      -- Known and open networks connect directly; secured unknown
+      -- ones need an auth agent we don't provide yet (POC).
+      reply, err = bus:call({
+        destination = IWD,
+        path = entry.path,
+        interface = IWD_NETWORK,
+        member = "Connect",
+        timeout_ms = 30000,
+      })
+    end
+    -- The cached agent percent is stale either way; force a fresh read.
+    net.refresh()
+    return reply, err
+  end
+
+  -- Commands ride the snapshot only while iwd is usable, so their
+  -- presence doubles as the availability check.
   local function publish()
+    local available = net.bus ~= nil and net.station ~= nil
     self:publish({
       operstate = st.operstate,
       essid = st.essid,
       percent = st.percent,
-      bus = net.bus,
-      station = net.station,
-      refresh = net.refresh,
+      scan = available and scan or nil,
+      list = available and list or nil,
+      connect = available and connect or nil,
     })
   end
 
@@ -360,7 +471,7 @@ local Network = kw.stateful({
 
   scan_wifi = function(self)
     local net = self.net
-    if not net or not net.bus or not net.station or self.wifi_scan_inflight then
+    if not net or not net.scan or self.wifi_scan_inflight then
       return
     end
     -- Show Scanning… immediately. A concurrent list fetch may still see
@@ -372,15 +483,7 @@ local Network = kw.stateful({
       state.wifi_scanning = true
     end)
     self.scope:spawn(function()
-      -- Errors here are usually "already scanning"; the results land via
-      -- the Scanning PropertiesChanged signal either way.
-      net.bus:call({
-        destination = IWD,
-        path = net.station,
-        interface = IWD_STATION,
-        member = "Scan",
-        timeout_ms = 2000,
-      })
+      net.scan()
       self.wifi_scan_inflight = false
       -- Re-read so the header and list match post-Scan station state
       -- (Scanning true now, or already false with a fuller list).
@@ -411,110 +514,37 @@ local Network = kw.stateful({
 
   refresh_wifi_list_now = function(self)
     local net = self.net
-    if not net or not net.bus or not net.station then
+    if not net or not net.list then
       self:set_state(function(state)
         state.wifi_status = "iwd unavailable"
       end)
       return
     end
-    local bus = net.bus
-    local station = net.station
-    local ordered_reply, ordered_err = bus:call({
-      destination = IWD,
-      path = station,
-      interface = IWD_STATION,
-      member = "GetOrderedNetworks",
-      timeout_ms = 3000,
-    })
-    if not ordered_reply then
-      log.warn("iwd GetOrderedNetworks failed", ordered_err or "unknown")
+    local result = net.list()
+    if not result then
       return -- retain the last good snapshot on transient D-Bus failures
-    end
-    -- Get all network metadata in one call instead of issuing a GetAll for
-    -- every row. GetOrderedNetworks is still needed for order and strength.
-    local managed_reply, managed_err = bus:call({
-      destination = IWD,
-      path = "/",
-      interface = DBUS_OBJECT_MANAGER,
-      member = "GetManagedObjects",
-      timeout_ms = 3000,
-    })
-    if not managed_reply then
-      log.warn("iwd GetManagedObjects failed", managed_err or "unknown")
-      return -- retain the last good snapshot on transient D-Bus failures
-    end
-    local scanning = false
-    local network_props = {}
-    for path, interfaces in pairs((managed_reply.args or {})[1] or {}) do
-      if path == station and interfaces[IWD_STATION] then
-        scanning = interfaces[IWD_STATION].Scanning == true
-      end
-      if interfaces[IWD_NETWORK] then
-        network_props[path] = interfaces[IWD_NETWORK]
-      end
-    end
-    local networks = {}
-    local ordered_networks = (ordered_reply.args or {})[1] or {}
-    for i, entry in ipairs(ordered_networks) do
-      if i > 12 then
-        break
-      end
-      local path = entry[1]
-      local props = network_props[path]
-      if props then
-        table.insert(networks, {
-          path = path,
-          name = props.Name or "?",
-          secured = props.Type ~= nil and props.Type ~= "open",
-          known = props.KnownNetwork ~= nil,
-          connected = props.Connected == true,
-          percent = dbm_to_percent((tonumber(entry[2]) or -10000) / 100),
-        })
-      end
     end
     self:set_state(function(state)
-      state.wifi_networks = networks
+      state.wifi_networks = result.networks
       -- Keep Scanning… while our Scan call is still in flight even if this
       -- snapshot was taken before iwd flipped Station.Scanning.
-      state.wifi_scanning = scanning or self.wifi_scan_inflight
+      state.wifi_scanning = result.scanning or self.wifi_scan_inflight
     end)
   end,
 
   connect_wifi = function(self, entry)
     local net = self.net
-    if not net or not net.bus or not net.station then
+    if not net or not net.connect then
       return
     end
     self.scope:spawn(function()
       self:set_state(function(state)
         state.wifi_status = entry.connected and "Disconnecting…" or ("Connecting to " .. entry.name .. "…")
       end)
-      local reply, err
-      if entry.connected then
-        reply, err = net.bus:call({
-          destination = IWD,
-          path = net.station,
-          interface = IWD_STATION,
-          member = "Disconnect",
-          timeout_ms = 10000,
-        })
-      else
-        -- Known and open networks connect directly; secured unknown
-        -- ones need an auth agent we don't provide yet (POC).
-        reply, err = net.bus:call({
-          destination = IWD,
-          path = entry.path,
-          interface = IWD_NETWORK,
-          member = "Connect",
-          timeout_ms = 30000,
-        })
-      end
+      local reply, err = net.connect(entry)
       self:set_state(function(state)
         state.wifi_status = reply and nil or ("Failed: " .. (err or "unknown"))
       end)
-      if net.refresh then
-        net.refresh()
-      end
       self:refresh_wifi_list()
     end)
   end,
