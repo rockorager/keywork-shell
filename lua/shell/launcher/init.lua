@@ -9,7 +9,6 @@ local history = require("shell.launcher.history")
 
 local M = {}
 
-local visible_rows = 8
 local row_height = 44
 local max_results = 64
 
@@ -117,7 +116,6 @@ local function set_query(self, text)
   self.query = text
   self.results = rank(self.entries, self.counts, text)
   self.selected = 1
-  self.top = 1
   self:set_state()
 end
 
@@ -127,11 +125,6 @@ local function move_selection(self, delta)
     return
   end
   self.selected = math.max(1, math.min(count, self.selected + delta))
-  if self.selected < self.top then
-    self.top = self.selected
-  elseif self.selected > self.top + visible_rows - 1 then
-    self.top = self.selected - visible_rows + 1
-  end
   self:set_state()
 end
 
@@ -189,16 +182,21 @@ local function result_row(self, index, entry, theme)
 end
 
 local function result_list(self, theme)
-  local rows = {}
-  local last = math.min(#self.results, self.top + visible_rows - 1)
-  for index = self.top, last do
-    table.insert(rows, result_row(self, index, self.results[index], theme))
+  if #self.results == 0 then
+    return kw.container({ min_height = row_height, align = "center" },
+      kw.label("No matches", { color = theme.colors.text_tertiary }))
   end
-  if #rows == 0 then
-    table.insert(rows, kw.container({ min_height = row_height, align = "center" },
-      kw.label("No matches", { color = theme.colors.text_tertiary })))
-  end
-  return kw.column({ align = "stretch", children = rows })
+  -- The list follows self.selected: moving the selection scrolls it
+  -- into view, wheel scrolling roams freely until the next move.
+  return kw.list({
+    id = "results",
+    count = #self.results,
+    item_height = row_height,
+    selected = self.selected,
+    build_item = function(index)
+      return result_row(self, index, self.results[index], theme)
+    end,
+  })
 end
 
 local function footer(self, theme)
@@ -239,7 +237,6 @@ local Launcher = kw.stateful({
     self.counts = history.load()
     self.query = ""
     self.selected = 1
-    self.top = 1
     self.results = rank(self.entries, self.counts, "")
   end,
 
@@ -264,10 +261,11 @@ local Launcher = kw.stateful({
       children = {
         search_field(self, theme),
         divider(theme),
+        -- Expanded so the list's viewport is the remaining window
+        -- height; the visible row count derives from it.
         -- 6px inset from keywork-launcher's design; the space scale
         -- (4, 8, 12, ...) has no matching step.
-        kw.container({ padding = { x = 6, y = 6 } }, result_list(self, theme)),
-        kw.spacer(),
+        kw.expanded(kw.container({ padding = { x = 6, y = 6 } }, result_list(self, theme))),
         divider(theme),
         footer(self, theme),
       },
