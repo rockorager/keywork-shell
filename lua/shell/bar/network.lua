@@ -11,6 +11,7 @@ local status_pill = util.status_pill
 local dbus_entries_to_table = util.dbus_entries_to_table
 
 local DBUS_PROPERTIES = "org.freedesktop.DBus.Properties"
+local DBUS_OBJECT_MANAGER = "org.freedesktop.DBus.ObjectManager"
 
 local IWD = "net.connman.iwd"
 local IWD_STATION = "net.connman.iwd.Station"
@@ -95,6 +96,9 @@ local Network = kw.stateful({
     if self.network_iwd_sub then
       self.network_iwd_sub:cancel()
     end
+    if self.network_iwd_objects_sub then
+      self.network_iwd_objects_sub:cancel()
+    end
     if self.iwd_agent then
       self.iwd_agent:unexport()
     end
@@ -110,7 +114,7 @@ local Network = kw.stateful({
       return
     end
     loop.spawn(function()
-      local object_manager = self.network_bus:proxy(IWD, "/", "org.freedesktop.DBus.ObjectManager", { timeout_ms = 2000 })
+      local object_manager = self.network_bus:proxy(IWD, "/", DBUS_OBJECT_MANAGER, { timeout_ms = 2000 })
       local managed_objects = object_manager:GetManagedObjects()
       if not managed_objects then
         return -- no iwd on this system; the shell fallback stays
@@ -271,9 +275,17 @@ local Network = kw.stateful({
   end,
 
   scan_wifi = function(self)
-    if not self.network_bus or not self.iwd_station then
+    if not self.network_bus or not self.iwd_station or self.wifi_scan_inflight then
       return
     end
+    -- Show Scanning… immediately. A concurrent list fetch may still see
+    -- Station.Scanning=false before Scan starts; wifi_scan_inflight keeps
+    -- the indicator on until the Scan call returns, after which the
+    -- station property (and its PropertiesChanged) own the flag.
+    self.wifi_scan_inflight = true
+    self:set_state(function(state)
+      state.wifi_scanning = true
+    end)
     loop.spawn(function()
       -- Errors here are usually "already scanning"; the results land via
       -- the Scanning PropertiesChanged signal either way.
@@ -284,12 +296,32 @@ local Network = kw.stateful({
         member = "Scan",
         timeout_ms = 2000,
       })
+      self.wifi_scan_inflight = false
+      -- Re-read so the header and list match post-Scan station state
+      -- (Scanning true now, or already false with a fuller list).
+      self:refresh_wifi_list()
     end)
   end,
 
+  -- Coalesces concurrent refresh requests. A fetch does N D-Bus GetAll
+  -- calls and can still be in flight when Scanning flips or InterfacesAdded
+  -- fires; dropping those would leave the menu stuck on a partial list
+  -- until the next open.
   refresh_wifi_list = function(self)
+    if self.wifi_fetching then
+      self.wifi_refresh_pending = true
+      return
+    end
+    self.wifi_fetching = true
     loop.spawn(function()
-      self:refresh_wifi_list_now()
+      while true do
+        self.wifi_refresh_pending = false
+        self:refresh_wifi_list_now()
+        if not self.wifi_refresh_pending then
+          break
+        end
+      end
+      self.wifi_fetching = false
     end)
   end,
 
@@ -301,10 +333,6 @@ local Network = kw.stateful({
       end)
       return
     end
-    if self.wifi_fetching then
-      return
-    end
-    self.wifi_fetching = true
     local station_reply = bus:call({
       destination = IWD,
       path = self.iwd_station,
@@ -348,10 +376,11 @@ local Network = kw.stateful({
         })
       end
     end
-    self.wifi_fetching = false
     self:set_state(function(state)
       state.wifi_networks = networks
-      state.wifi_scanning = scanning
+      -- Keep Scanning… while our Scan call is still in flight even if this
+      -- snapshot was taken before iwd flipped Station.Scanning.
+      state.wifi_scanning = scanning or self.wifi_scan_inflight
     end)
   end,
 
@@ -526,7 +555,7 @@ printf '%s\n%s\n%s\n' "$operstate" "$essid" "$quality"
         end
       end
     end)
-    -- iwd systems: Station state and connected-network changes.
+    -- iwd systems: Station state, scanning, and connected-network changes.
     local iwd_ok, iwd_sub = pcall(function()
       return bus:subscribe({
         path_namespace = "/net/connman/iwd",
@@ -540,6 +569,32 @@ printf '%s\n%s\n%s\n' "$operstate" "$essid" "$quality"
           if signal.member == "PropertiesChanged" then
             self:set_state(function(state)
               state:update_network()
+              if state.wifi_menu_open then
+                state:refresh_wifi_list()
+              end
+            end)
+          end
+        end
+      end)
+    end
+    -- iwd's ObjectManager lives at /, outside the namespace above. Network
+    -- objects appear and disappear there while GetOrderedNetworks grows.
+    local objects_ok, objects_sub = pcall(function()
+      return bus:subscribe({
+        path = "/",
+        interface = DBUS_OBJECT_MANAGER,
+      })
+    end)
+    if objects_ok and objects_sub then
+      self.network_iwd_objects_sub = objects_sub
+      local sub = self.network_iwd_objects_sub
+      loop.spawn(function()
+        for signal in sub:events() do
+          local object_path = (signal.args or {})[1]
+          if (signal.member == "InterfacesAdded" or signal.member == "InterfacesRemoved")
+            and type(object_path) == "string"
+            and object_path:sub(1, #"/net/connman/iwd/") == "/net/connman/iwd/" then
+            self:set_state(function(state)
               if state.wifi_menu_open then
                 state:refresh_wifi_list()
               end
