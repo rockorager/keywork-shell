@@ -5,42 +5,6 @@ Fix these in `../keywork`, then simplify here.
 
 ## Open
 
-- **Cursor set inside a popup grab sticks after the pointer leaves (sway).**
-  With a hand cursor shown over a menu row, moving the pointer out of the
-  popup onto dead space left the hand visible. Not fixable client-side:
-  sway only honors `cursor_shape.set_shape` from the *currently focused*
-  pointer client with the current enter serial, so resetting on
-  `wl_pointer.leave` is ignored by design, and during an xdg_popup grab
-  sway keeps displaying the last client-set cursor over dead space.
-  Compositor-side (sway/wlroots) gap; consider reporting upstream.
-  Sidestepped entirely instead: keywork clickables now default to the
-  arrow cursor (`3cfca56e7718`), matching macOS, where the pointing hand
-  is reserved for hyperlinks and menus/buttons/menu-bar extras keep the
-  arrow (hover highlight is the affordance). Link-like widgets opt in
-  with `cursor = "pointer"` on `kw.gesture`/`kw.chip`.
-
-- **No `loop.listen` in the Lua socket API.** `keywork.loop` exposes
-  `connect` only ([socket.zig](../keywork/src/lua/socket.zig)); listen/accept
-  exist in Zig but aren't exported. Not blocking the shell — control IPC went
-  over D-Bus instead (`bus:request_name` + `bus:export`, see `lua/shell/ipc.lua`),
-  which the API already supports well — but a Lua app still can't host a plain
-  unix socket server.
-- **Removed theme tokens fail silently.** After keywork `7e84d0aa` moved theme
-  tokens to Radix scales, old lookups like `theme.radius.md` return nil and
-  widgets quietly render without radius (square selection highlight in the
-  launcher) instead of raising or warning. Consider making `resolve_theme`
-  (or widget option parsing) warn on nil/unknown style tokens so API breaks
-  surface loudly.
-- **`kw.expanded` + `vertical_align` centers against the wrong height.**
-  A box inside a tight flexible fit aligns its child while shrink-wrapped,
-  then [layout.zig](../keywork/src/ui/layout.zig) `setMainExtent` (tight-fit
-  branch, ~L513) inflates the box rect afterwards without re-aligning the
-  child — so `expanded(container({ vertical_align = "center" }))` renders
-  content top-aligned with the slack at the bottom. This made the whole bar
-  row sit ~2px high. Partially fixed in keywork: the bar's
-  `expanded(container)` case now centers correctly (pixel-verified in the
-  shell). Kept open until the general case is done.
-
 - **Seats without pointer capability crash window creation.** On headless
   sway (`WLR_BACKENDS=headless`, no input devices) keywork dies with
   `wl_seat.get_pointer called when no pointer capability has existed` and
