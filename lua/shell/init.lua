@@ -50,10 +50,6 @@ return kw.app({
         child = bar.Bar({
           key = "bar",
           show_tray = index == 1,
-          launcher_open = shell.launcher_open,
-          on_toggle_launcher = function()
-            set_launcher_open(not shell.launcher_open)
-          end,
         }),
       })
     end

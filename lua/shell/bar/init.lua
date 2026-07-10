@@ -21,36 +21,14 @@ local function palette_for(theme)
   return cached
 end
 
-local function launcher_button(self, palette)
-  local open = self.props.launcher_open
-  return kw.chip({
-    id = "launcher-toggle",
-    theme = palette.chip_theme,
-    child = kw.icon({
-      name = "view-app-grid-symbolic",
-      size = 16,
-      color = open and palette.on_active or palette.muted,
-    }),
-    align = "center",
-    padding = { x = palette.space[3] },
-    selected = open,
-    on_tap = function()
-      if self.props.on_toggle_launcher then
-        self.props.on_toggle_launcher()
-      end
-    end,
-  })
-end
-
--- One bar per output. props: launcher_open, on_toggle_launcher, and
--- show_tray (SNI hosts register on D-Bus, so only one bar carries it).
+-- One bar per output. props: show_tray (SNI hosts register on D-Bus,
+-- so only one bar carries it).
 local Bar = kw.stateful({
   build = function(self, context)
     local theme = context.theme
     local palette = palette_for(theme)
 
     local children = {
-      launcher_button(self, palette),
       sway.Workspaces({ key = "sway-workspaces", colors = palette }),
       kw.spacer(),
     }
