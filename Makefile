@@ -9,6 +9,7 @@ MODULES := \
 	lua/shell/ipc.lua \
 	lua/shell/bar/init.lua \
 	lua/shell/bar/colors.lua \
+	lua/shell/bar/network.lua \
 	lua/shell/bar/status.lua \
 	lua/shell/bar/sway.lua \
 	lua/shell/bar/tray.lua \
