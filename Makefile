@@ -4,7 +4,7 @@ BINDIR ?= $(PREFIX)/bin
 DATADIR ?= $(PREFIX)/share/keywork-shell
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 
-SCRIPT := lua/shell/init.lua
+SCRIPT := lua/init.lua
 MODULES := \
 	lua/shell/ipc.lua \
 	lua/shell/bar/init.lua \
@@ -32,7 +32,7 @@ check: $(SCRIPT) $(MODULES)
 	rm -f /tmp/keywork-shell-check.luac
 
 run: check
-	LUA_PATH="lua/?.lua;lua/?/init.lua;;" $(KEYWORK) --script=$(SCRIPT)
+	$(KEYWORK) --script=$(SCRIPT)
 
 install: install-app install-service
 

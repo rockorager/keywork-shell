@@ -13,6 +13,11 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **`require` needed a LUA_PATH bootstrap.** Both `bin/keywork-shell` and
+  `make run` exported `LUA_PATH` so `require("shell.*")` could resolve.
+  Fixed in keywork: the script's directory is prepended to `package.path`
+  (`<dir>/?.lua;<dir>/?/init.lua`). The entry point moved to `lua/init.lua`
+  so `lua/` is the module root, and the bootstrap is gone.
 - **SVG icons lost `<use>`-cloned shapes.** Even with the right file
   resolved, GNOME's Files icon rendered with one drawer handle instead
   of three: the icon draws one handle and clones the rest with

@@ -11,13 +11,6 @@ launcher)
 esac
 
 app_dir=${KEYWORK_SHELL_DATADIR:-${XDG_DATA_HOME:-$HOME/.local/share}/keywork-shell}
-lua_path="$app_dir/lua/?.lua;$app_dir/lua/?/init.lua"
-
-if [ "${LUA_PATH+x}" ]; then
-  export LUA_PATH="$lua_path;$LUA_PATH"
-else
-  export LUA_PATH="$lua_path;;"
-fi
 
 if [ "${KEYWORK_SHELL_KEYWORK+x}" ]; then
   keywork=$KEYWORK_SHELL_KEYWORK
@@ -27,4 +20,4 @@ else
   keywork=keywork
 fi
 
-exec "$keywork" --script="$app_dir/lua/shell/init.lua" "$@"
+exec "$keywork" --script="$app_dir/lua/init.lua" "$@"
