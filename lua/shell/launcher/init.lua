@@ -37,24 +37,18 @@ local function rank(entries, counts, query)
   return results
 end
 
-local function entry_icon(entry, size)
-  local name = entry.icon or ""
-  if name == "" then
+local function entry_icon(entry, size, theme)
+  -- kw.icon takes raw desktop-entry Icon values: theme names (with
+  -- legacy stray extensions), absolute SVG/raster paths, and basename
+  -- fallback for unsupported formats are handled engine-side.
+  local name = entry.icon
+  if not name or name == "" then
     name = "application-x-executable"
   end
-  if name:sub(1, 1) == "/" then
-    -- The spec allows absolute icon paths: .svg goes to the SVG
-    -- rasterizer, anything else straight to the engine (stb decodes
-    -- PNG/JPEG/BMP; unsupported formats degrade to the missing glyph).
-    if name:lower():match("%.svg$") then
-      return kw.svg_icon({ path = name, size = size })
-    end
-    return kw.icon({ name = name, size = size })
-  end
-  -- Theme names sometimes carry a stray extension; strip it
-  -- case-insensitively before lookup.
-  name = name:gsub("%.[pP][nN][gG]$", ""):gsub("%.[sS][vV][gG]$", ""):gsub("%.[xX][pP][mM]$", "")
-  return kw.icon({ name = name, size = size })
+  -- Monochrome glyph icons (icon_tint entries) take the theme's text
+  -- color so they keep contrast on the selection highlight.
+  local color = entry.icon_tint and theme.colors.text_secondary or nil
+  return kw.icon({ name = name, size = size, color = color })
 end
 
 local function dismiss(self)
@@ -189,7 +183,7 @@ local function result_row(self, index, entry, theme)
       spacing = theme.space[3],
       align = "center",
       children = {
-        entry_icon(entry, 24),
+        entry_icon(entry, 24, theme),
         kw.text(entry.title),
         kw.spacer(),
         kw.label(entry.subtitle or "", { color = theme.colors.text_tertiary }),
