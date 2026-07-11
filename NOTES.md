@@ -53,8 +53,9 @@ Fix these in `../keywork`, then simplify here.
   `PopupManager` is generic over the backend, the vulkan backend gained
   `createPopup` (the xdg_popup plumbing was already shared in window.zig),
   and the gate is now `@hasDecl(Backend, "createPopup")`. Verified live:
-  popup renders in its own Vulkan swapchain. Note: the *multi-window* host
-  (`windows = function(ctx)`) is still shm-only — separate gap.
+  popup renders in its own Vulkan swapchain. The *multi-window* host
+  (`windows = function(ctx)`) was shm-only at the time but has since
+  gained Vulkan too (verified live in keywork-files).
 - **Popup surfaces cleared to opaque theme background.** Rounded menu
   corners showed opaque squares: layer-shell windows get
   `setFrameBackground(transparent)` but popup runtimes in
