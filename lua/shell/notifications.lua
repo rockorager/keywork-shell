@@ -18,27 +18,6 @@ M.width = 380
 M.gap = 8
 M.margin = 12
 
-function M.height_for(notification)
-  local body_lines = 0
-  if notification.body ~= "" then
-    for line in (notification.body .. "\n"):gmatch("(.-)\n") do
-      local characters = select(2, line:gsub("[^\128-\191]", ""))
-      body_lines = body_lines + math.max(1, math.ceil(characters / 44))
-    end
-    body_lines = math.min(body_lines, 2)
-  end
-
-  -- Radix text size 2 uses a 20px line box. Action cards add one compact
-  -- 28px button row separated from the content by space 2 (8px).
-  local height = body_lines == 0 and 76 or 94 + (body_lines - 1) * 20
-  for _, action in ipairs(notification.actions or {}) do
-    if action.key ~= "default" then
-      return height + 36
-    end
-  end
-  return height
-end
-
 local entities = {
   amp = "&",
   apos = "'",
@@ -466,6 +445,7 @@ local function action_buttons(server, notification, theme, on_hover)
         }, kw.label(current.label, {
           color = theme.colors.text,
           size = theme.font_size[1],
+          line_height = theme.line_height[1],
           max_lines = 1,
         })),
       }))
@@ -515,6 +495,7 @@ local NotificationCard = kw.stateful({
       kw.label(notification.app_name, {
         color = theme.colors.text_tertiary,
         size = theme.font_size[1],
+        line_height = theme.line_height[1],
         max_lines = 1,
       }),
       kw.spacer(),
@@ -536,6 +517,23 @@ local NotificationCard = kw.stateful({
       })),
     })
 
+    local text_children = {
+      kw.row({
+        align = "center",
+        children = header,
+      }),
+      kw.label(notification.summary, {
+        color = theme.colors.text,
+        max_lines = 1,
+      }),
+    }
+    if notification.body ~= "" then
+      text_children[#text_children + 1] = kw.label(notification.body, {
+        color = theme.colors.text_secondary,
+        max_lines = 2,
+      })
+    end
+
     local content = kw.row({
       spacing = theme.space[3],
       children = {
@@ -543,22 +541,7 @@ local NotificationCard = kw.stateful({
         kw.expanded(kw.column({
           align = "stretch",
           spacing = theme.space[1],
-          children = {
-            kw.row({
-              align = "center",
-              children = header,
-            }),
-            kw.label(notification.summary, {
-              color = theme.colors.text,
-              size = theme.font_size[2],
-              max_lines = 1,
-            }),
-            kw.label(notification.body, {
-              color = theme.colors.text_secondary,
-              size = theme.font_size[2],
-              max_lines = 2,
-            }),
-          },
+          children = text_children,
         })),
       },
     })
@@ -574,7 +557,7 @@ local NotificationCard = kw.stateful({
     end
 
     local children = {
-      kw.expanded(content),
+      content,
     }
     if #actions > 0 then
       children[#children + 1] = kw.row({
@@ -585,10 +568,8 @@ local NotificationCard = kw.stateful({
     end
 
     local border = notification.urgency == 2 and theme.colors.danger or theme.colors.border
-    local height = M.height_for(notification)
     local card = kw.container({
       min_width = M.width,
-      min_height = height,
       padding = { all = 4 },
     }, kw.container({
       background = theme.colors.surface,
@@ -596,7 +577,6 @@ local NotificationCard = kw.stateful({
       border_width = 1,
       radius = theme.radius[4],
       min_width = M.width - 8,
-      min_height = height - 8,
       padding = { x = theme.space[3], y = theme.space[2] },
     }, kw.column({
       align = "stretch",
@@ -615,5 +595,25 @@ local NotificationCard = kw.stateful({
 })
 
 M.Card = NotificationCard
+
+local NotificationStack = kw.stateful({
+  build = function(self)
+    local children = {}
+    for _, notification in ipairs(self.props.server:visible()) do
+      children[#children + 1] = NotificationCard({
+        key = "notification:" .. notification.id,
+        server = self.props.server,
+        notification = notification,
+      })
+    end
+    return kw.column({
+      align = "stretch",
+      spacing = M.gap,
+      children = children,
+    })
+  end,
+})
+
+M.Stack = NotificationStack
 
 return M

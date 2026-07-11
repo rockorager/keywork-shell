@@ -113,42 +113,29 @@ return kw.app({
       })
     end
 
-    -- Include geometry in each window id: layer-shell margins and dimensions
-    -- cannot be updated live, so a card whose stack position or content height
-    -- changes must be recreated with its new declaration.
-    if notification_server and ctx.outputs[1] then
+    if notification_server and ctx.outputs[1]
+        and #notification_server:visible() > 0 then
       local output = ctx.outputs[1]
       -- A zero-zone layer surface is already placed inside the bar's
       -- exclusive zone; this margin is only the visual gap below it.
-      local top = notifications.gap
-      local available = math.max(0, output.height - bar.height - top - notifications.margin)
-      local used = 0
-      for _, notification in ipairs(notification_server:visible()) do
-        local height = notifications.height_for(notification)
-        if used > 0 and used + height > available then
-          break
-        end
-        windows[#windows + 1] = kw.window({
-          id = "notification:" .. notification.id .. ":" .. used .. ":" .. height,
-          output = output.name,
-          width = notifications.width,
-          height = height,
-          layer_shell = {
-            layer = "overlay",
-            anchor = { "top", "right" },
-            margin = {
-              top = top + used,
-              right = notifications.margin,
-            },
+      windows[#windows + 1] = kw.window({
+        id = "notifications",
+        output = output.name,
+        width = notifications.width,
+        height = "content",
+        layer_shell = {
+          layer = "overlay",
+          anchor = { "top", "right" },
+          margin = {
+            top = notifications.gap,
+            right = notifications.margin,
           },
-          child = notifications.Card({
-            key = "notification-card",
-            server = notification_server,
-            notification = notification,
-          }),
-        })
-        used = used + height + notifications.gap
-      end
+        },
+        child = notifications.Stack({
+          key = "notification-stack",
+          server = notification_server,
+        }),
+      })
     end
 
     return windows

@@ -33,7 +33,7 @@ local function notification_story(id, name, notification)
     name = name,
     viewport = {
       width = notifications.width,
-      height = notifications.height_for(notification),
+      height = "content",
       scale = 2,
     },
     color_scheme = "dark",
