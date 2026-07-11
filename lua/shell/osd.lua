@@ -64,7 +64,9 @@ local Level = kw.stateful({
         min_height = M.height,
         padding = { all = 4 },
       }, kw.container({
-        background = theme.colors.surface_high,
+        background = theme.colors.surface,
+        border = theme.colors.border,
+        border_width = 1,
         radius = theme.radius[6],
         min_width = M.width - 8,
         min_height = M.height - 8,
@@ -102,33 +104,58 @@ function Controller:visible()
 end
 
 function Controller:show(kind, value, muted)
-  self.generation = self.generation + 1
-  local generation = self.generation
   self.current = {
     kind = kind,
     value = clamp(value, 0, 1),
     muted = muted == true,
-    generation = generation,
   }
   self:changed()
+
+  local previous = self.hide_timer
+  local timer = loop.timer({ delay = DISPLAY_MS / 1000 })
+  self.hide_timer = timer
+  if previous then
+    previous:cancel()
+  end
   loop.spawn(function()
-    loop.sleep(DISPLAY_MS)
-    if self.current and self.current.generation == generation then
-      self.current = nil
-      self:changed()
+    for _ in timer:ticks() do
+      if self.hide_timer == timer then
+        self.hide_timer = nil
+        self.current = nil
+        self:changed()
+      end
     end
   end)
 end
 
-function Controller:enqueue(job)
-  self.jobs[#self.jobs + 1] = job
+function Controller:enqueue(key, action, run_job)
+  local pending = self.jobs[#self.jobs]
+  if pending and pending.key == key and pending.action == action then
+    pending.count = pending.count + 1
+    return
+  end
+  self.jobs[#self.jobs + 1] = {
+    key = key,
+    action = action,
+    count = 1,
+    run = run_job,
+  }
   if self.running then
     return
   end
   self.running = true
   loop.spawn(function()
     while #self.jobs > 0 do
-      table.remove(self.jobs, 1)()
+      local job = self.jobs[1]
+      local count = job.count
+      job.count = 0
+      job.run(count)
+      -- Repeats received while the job yielded merge back into this job;
+      -- process them as one batch instead of replaying stale intermediate
+      -- levels after the key is released.
+      if job.count == 0 then
+        table.remove(self.jobs, 1)
+      end
     end
     self.running = false
   end)
@@ -157,15 +184,17 @@ function Controller:adjust_audio(kind, action)
   if not target or (action ~= "up" and action ~= "down" and action ~= "mute") then
     return false
   end
-  self:enqueue(function()
+  self:enqueue("audio:" .. kind, action, function(count)
     local changed
     if action == "mute" then
-      changed = run({ "wpctl", "set-mute", target, "toggle" })
+      -- Multiple queued toggles have the same final state as their parity;
+      -- avoid visibly replaying every intermediate mute state.
+      changed = count % 2 == 0 or run({ "wpctl", "set-mute", target, "toggle" })
     else
       if not run({ "wpctl", "set-mute", target, "0" }) then
         return
       end
-      local step = action == "up" and "5%+" or "5%-"
+      local step = (count * 5) .. (action == "up" and "%+" or "%-")
       changed = run({ "wpctl", "set-volume", "-l", "1.0", target, step })
     end
     if not changed then
@@ -250,13 +279,14 @@ function Controller:adjust_brightness(action)
   if action ~= "up" and action ~= "down" then
     return false
   end
-  self:enqueue(function()
+  self:enqueue("brightness", action, function(count)
     local current = self:backlight()
     if not current then
       return
     end
     local step = math.max(1, math.floor(current.maximum * 0.05 + 0.5))
-    local target = clamp(current.value + (action == "up" and step or -step), 0, current.maximum)
+    local delta = count * step * (action == "up" and 1 or -1)
+    local target = clamp(current.value + delta, 0, current.maximum)
     if target ~= current.value then
       local bus = self:system()
       if not bus then
@@ -289,7 +319,6 @@ function M.new(on_change)
     on_change = on_change,
     jobs = {},
     running = false,
-    generation = 0,
   }, Controller)
 end
 
