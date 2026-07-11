@@ -13,6 +13,14 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **SVG icons lost `<use>`-cloned shapes.** Even with the right file
+  resolved, GNOME's Files icon rendered with one drawer handle instead
+  of three: the icon draws one handle and clones the rest with
+  `<use xlink:href>`, which nanosvg silently drops (librsvg-based
+  launchers like fuzzel render it fully). Fixed in keywork `e1e8eee4`:
+  a text-level pass expands each resolvable `<use>` into a
+  `<g transform>` clone of its target before rasterizing.
+
 - **App icons resolved to their symbolic variants.** GNOME Files showed
   the grey symbolic cabinet instead of its full-color icon. index.theme
   parsing let `Size=` clobber an already-parsed `MinSize=`/`MaxSize=`
