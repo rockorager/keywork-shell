@@ -2,8 +2,8 @@ local kw = require("keywork")
 local dbus = require("keywork.dbus")
 local log = require("keywork.log")
 local loop = require("keywork.loop")
-local process = require("keywork.process")
 local xdg = require("keywork.xdg")
+local audio = require("shell.audio")
 
 local M = {}
 
@@ -161,51 +161,18 @@ function Controller:enqueue(key, action, run_job)
   end)
 end
 
-local audio_targets = {
-  volume = "@DEFAULT_AUDIO_SINK@",
-  microphone = "@DEFAULT_AUDIO_SOURCE@",
-}
-
-local function run(argv)
-  local result, err = process.capture(argv)
-  if not result then
-    log.warn("osd command failed", argv[1], err or "unknown")
-    return nil
-  end
-  if not result.ok then
-    log.warn("osd command failed", argv[1], result.stderr or "")
-    return nil
-  end
-  return result
-end
-
 function Controller:adjust_audio(kind, action)
-  local target = audio_targets[kind]
-  if not target or (action ~= "up" and action ~= "down" and action ~= "mute") then
+  if (kind ~= "volume" and kind ~= "microphone")
+      or (action ~= "up" and action ~= "down" and action ~= "mute") then
     return false
   end
   self:enqueue("audio:" .. kind, action, function(count)
-    local changed
-    if action == "mute" then
-      -- Multiple queued toggles have the same final state as their parity;
-      -- avoid visibly replaying every intermediate mute state.
-      changed = count % 2 == 0 or run({ "wpctl", "set-mute", target, "toggle" })
-    else
-      if not run({ "wpctl", "set-mute", target, "0" }) then
-        return
-      end
-      local step = (count * 5) .. (action == "up" and "%+" or "%-")
-      changed = run({ "wpctl", "set-volume", "-l", "1.0", target, step })
-    end
-    if not changed then
-      return
-    end
-    local state = run({ "wpctl", "get-volume", target })
+    local state, err = audio.adjust(kind, action, count)
     if not state then
+      log.warn("audio control failed", err or "unknown")
       return
     end
-    local value = tonumber(state.stdout:match("Volume:%s*([%d%.]+)")) or 0
-    self:show(kind, value, state.stdout:find("MUTED", 1, true) ~= nil)
+    self:show(kind, state.volume or 0, state.muted)
   end)
   return true
 end

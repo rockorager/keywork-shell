@@ -2,9 +2,8 @@ local kw = require("keywork")
 local dbus = require("keywork.dbus")
 local log = require("keywork.log")
 local loop = require("keywork.loop")
-local process = require("keywork.process")
 local service = require("keywork.service")
-local stream = require("keywork.stream")
+local audio = require("shell.audio")
 local network = require("shell.bar.network")
 local util = require("shell.bar.util")
 
@@ -17,25 +16,6 @@ local UPOWER_DEVICE = "org.freedesktop.UPower.Device"
 local DISPLAY_DEVICE = "/org/freedesktop/UPower/devices/DisplayDevice"
 
 local TIME_FORMAT = "%a %b %d  %I:%M %p"
-
-local function volume_status(palette, audio)
-  if not audio then
-    return status_pill(palette, "volume", "audio-volume-muted", nil, palette.muted)
-  end
-  local percent = audio.percent
-  local muted = audio.muted
-  local name = "audio-volume-high"
-  local color = palette.accent
-  if muted or percent <= 0 then
-    name = "audio-volume-muted"
-    color = palette.muted
-  elseif percent < 34 then
-    name = "audio-volume-low"
-  elseif percent < 67 then
-    name = "audio-volume-medium"
-  end
-  return status_pill(palette, "volume", name, nil, color)
-end
 
 local function upower_state_name(state)
   if state == 1 then
@@ -98,56 +78,6 @@ local clock_service = service.define("shell.bar.clock", function(self)
   end
 end)
 
-local audio_service = service.define("shell.bar.audio", function(self)
-  local refreshing = false
-  local dirty = false
-
-  local function refresh()
-    if refreshing then
-      dirty = true
-      return
-    end
-    refreshing = true
-    loop.spawn(function()
-      local result = process.capture({ "wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@" })
-      refreshing = false
-      if result and result.ok then
-        local raw = tonumber(result.stdout:match("Volume:%s*([%d%.]+)")) or 0
-        self:publish({
-          percent = math.floor(raw * 100 + 0.5),
-          muted = result.stdout:find("MUTED", 1, true) ~= nil,
-        })
-      end
-      if dirty then
-        dirty = false
-        refresh()
-      end
-    end)
-  end
-
-  refresh()
-
-  local proc = process.spawn({
-    argv = { "pactl", "subscribe" },
-    stdout = "pipe",
-    stderr = "pipe",
-  })
-  if not proc then
-    log.warn("volume subscribe unavailable")
-    return
-  end
-
-  for line in stream.lines(proc:stdout()) do
-    if line:find("sink", 1, true) or line:find("server", 1, true) then
-      refresh()
-    end
-  end
-  local result = proc:wait()
-  if not (result and result.ok) then
-    log.warn("volume subscribe exited")
-  end
-end)
-
 local battery_service = service.define("shell.bar.battery", function(self)
   local ok, bus = pcall(function()
     return dbus.system()
@@ -179,10 +109,6 @@ end)
 
 local StatusItems = kw.stateful({
   init = function(self)
-    self.audio = audio_service:use(self.scope, function(audio)
-      self.audio = audio
-      self:set_state()
-    end)
     self.battery = battery_service:use(self.scope, function(battery)
       self.battery = battery
       self:set_state()
@@ -200,7 +126,7 @@ local StatusItems = kw.stateful({
       spacing = palette.space[2],
       align = "center",
       children = {
-        volume_status(palette, self.audio),
+        audio.Audio({ key = "audio", colors = palette }),
         network.Network({ key = "network", colors = palette }),
         battery_status_from_values(palette, battery.percentage, battery.state),
         label(self.time, palette),

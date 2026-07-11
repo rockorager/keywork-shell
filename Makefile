@@ -8,6 +8,7 @@ SCRIPT := lua/init.lua
 STORYBOOK := lua/storybook.lua
 MODULES := \
 	lua/shell/ipc.lua \
+	lua/shell/audio.lua \
 	lua/shell/bar/init.lua \
 	lua/shell/bar/colors.lua \
 	lua/shell/bar/network.lua \

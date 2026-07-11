@@ -8,6 +8,12 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **PipeWire audio could only be observed, not controlled.** The shell would
+  still have needed `wpctl` for volume/mute and default-device selection after
+  adopting `keywork.audio`. Keywork now streams node volume/mute properties,
+  writes matching device routes (with node-property fallback for virtual
+  devices), and updates configured-default metadata. The bar and OSD no longer
+  spawn `wpctl` or `pactl`.
 - **`require` needed a LUA_PATH bootstrap.** Both `bin/keywork-shell` and
   `make run` exported `LUA_PATH` so `require("shell.*")` could resolve.
   Fixed in keywork: the script's directory is prepended to `package.path`
