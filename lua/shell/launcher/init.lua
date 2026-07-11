@@ -1,9 +1,6 @@
 local kw = require("keywork")
-local loop = require("keywork.loop")
-local log = require("keywork.log")
-local xdg = require("keywork.xdg.applications")
 
-local apps = require("shell.launcher.apps")
+local providers = require("shell.launcher.providers")
 local match = require("shell.launcher.match")
 local history = require("shell.launcher.history")
 
@@ -31,7 +28,7 @@ local function rank(entries, counts, query)
     if a.score ~= b.score then
       return a.score > b.score
     end
-    return a.entry.search.name < b.entry.search.name
+    return a.entry.sort_key < b.entry.sort_key
   end)
   local results = {}
   for index = 1, math.min(#scored, max_results) do
@@ -46,12 +43,17 @@ local function entry_icon(entry, size)
     name = "application-x-executable"
   end
   if name:sub(1, 1) == "/" then
-    if name:match("%.svg$") then
+    -- The spec allows absolute icon paths: .svg goes to the SVG
+    -- rasterizer, anything else straight to the engine (stb decodes
+    -- PNG/JPEG/BMP; unsupported formats degrade to the missing glyph).
+    if name:lower():match("%.svg$") then
       return kw.svg_icon({ path = name, size = size })
     end
-    name = name:match("([^/]+)%.%w+$") or "application-x-executable"
+    return kw.icon({ name = name, size = size })
   end
-  name = name:gsub("%.png$", ""):gsub("%.svg$", ""):gsub("%.xpm$", "")
+  -- Theme names sometimes carry a stray extension; strip it
+  -- case-insensitively before lookup.
+  name = name:gsub("%.[pP][nN][gG]$", ""):gsub("%.[sS][vV][gG]$", ""):gsub("%.[xX][pP][mM]$", "")
   return kw.icon({ name = name, size = size })
 end
 
@@ -61,65 +63,70 @@ local function dismiss(self)
   end
 end
 
--- Serial keeps transient unit names unique when the same app is launched
--- twice in the same second; the timestamp keeps them unique across shell
--- restarts (old units stay around as long as the app runs).
-local launch_serial = 0
-
--- Wraps an app's argv in a transient systemd user unit so the app lives
--- outside keywork-shell.service's cgroup — otherwise restarting the shell
--- kills everything it ever launched. ExitType=cgroup keeps the unit alive
--- for apps whose first process forks and exits (browsers, electron).
-local function systemd_wrap(argv, entry)
-  launch_serial = launch_serial + 1
-  local slug = (entry.id or "app"):gsub("%.desktop$", ""):gsub("[^%w%-]", "-")
-  local unit = ("app-keywork-%s-%d-%d"):format(slug, os.time(), launch_serial)
-  local wrapped = {
-    "systemd-run",
-    "--user",
-    "--collect",
-    "--slice=app.slice",
-    "--property=ExitType=cgroup",
-    "--unit=" .. unit,
-    "--description=" .. (entry.name or slug),
-    "--",
-  }
-  for _, arg in ipairs(argv) do
-    table.insert(wrapped, arg)
-  end
-  return wrapped
-end
-
-local function launch(self, entry)
-  if not entry then
+-- Runs one of an entry's actions. The action owns its async work and
+-- dismisses the launcher through ctx when it's done.
+local function run_action(self, entry, action)
+  if not entry or not action then
     return
   end
   history.bump(self.counts, entry.id)
-  loop.spawn(function()
-    local proc, err = xdg.launch(entry, {
-      terminal_argv = { os.getenv("TERMINAL") or "xterm", "-e" },
-      wrap = systemd_wrap,
-    })
-    if not proc then
-      log.warn("launch failed", entry.id, err or "unknown")
-    elseif proc ~= true then
-      -- Wait for systemd-run to start the unit before closing the
-      -- launcher window; dismissing immediately could cancel the spawn
-      -- mid-flight. (true means D-Bus activation already handled it.)
-      proc:wait()
-    end
-    dismiss(self)
-  end)
+  if self.actions_open then
+    self.actions_open = false
+    self:set_state()
+  end
+  action.run({
+    dismiss = function()
+      dismiss(self)
+    end,
+  })
+end
+
+local function activate(self)
+  local entry = self.results[self.selected]
+  if not entry then
+    return
+  end
+  local index = self.actions_open and self.action_selected or 1
+  run_action(self, entry, entry.actions[index])
+end
+
+local function close_actions(self)
+  self.actions_open = false
+  self:set_state()
+end
+
+local function toggle_actions(self)
+  if self.actions_open then
+    close_actions(self)
+    return
+  end
+  if not self.results[self.selected] then
+    return
+  end
+  self.actions_open = true
+  self.action_selected = 1
+  self:set_state()
 end
 
 local function set_query(self, text)
   self.query = text
   self.results = rank(self.entries, self.counts, text)
   self.selected = 1
+  self.actions_open = false
   self:set_state()
 end
 
 local function move_selection(self, delta)
+  if self.actions_open then
+    local entry = self.results[self.selected]
+    local count = entry and #entry.actions or 0
+    if count == 0 then
+      return
+    end
+    self.action_selected = math.max(1, math.min(count, self.action_selected + delta))
+    self:set_state()
+    return
+  end
   local count = #self.results
   if count == 0 then
     return
@@ -155,21 +162,22 @@ end
 
 local function result_row(self, index, entry, theme)
   local selected = index == self.selected
-  local subtitle = entry.generic_name or entry.comment or ""
   return kw.pressable({
     id = "result-" .. entry.id,
     -- Raycast model: one highlight. Pointer hover moves the selection
     -- instead of painting a second hover state; keyboard and mouse
     -- drive the same index. Hover only fires on real pointer motion,
     -- so keyboard-driven list scrolling can't yank the selection back.
+    -- While the actions menu is open the selection is pinned: moving
+    -- it would silently retarget the open menu.
     on_hover = function(hovered)
-      if hovered and self.selected ~= index then
+      if hovered and not self.actions_open and self.selected ~= index then
         self.selected = index
         self:set_state()
       end
     end,
     on_tap = function()
-      launch(self, entry)
+      run_action(self, entry, entry.actions[1])
     end,
     child = kw.container({
       background = selected and theme.colors.fill or nil,
@@ -182,9 +190,9 @@ local function result_row(self, index, entry, theme)
       align = "center",
       children = {
         entry_icon(entry, 24),
-        kw.text(entry.name),
+        kw.text(entry.title),
         kw.spacer(),
-        kw.label(subtitle, { color = theme.colors.text_tertiary }),
+        kw.label(entry.subtitle or "", { color = theme.colors.text_tertiary }),
       },
     })),
   })
@@ -208,6 +216,40 @@ local function result_list(self, theme)
   })
 end
 
+-- The actions menu for the selected entry, shown as a popup anchored to
+-- the footer's actions hint. Selection mirrors the result list: one
+-- highlight driven by both keyboard and pointer.
+local function action_menu(self, entry, theme)
+  local rows = {}
+  for index, action in ipairs(entry.actions) do
+    local selected = index == self.action_selected
+    table.insert(rows, kw.pressable({
+      id = "action-" .. index,
+      on_hover = function(hovered)
+        if hovered and self.action_selected ~= index then
+          self.action_selected = index
+          self:set_state()
+        end
+      end,
+      on_tap = function()
+        run_action(self, entry, action)
+      end,
+      child = kw.container({
+        background = selected and theme.colors.fill or nil,
+        radius = theme.radius[4],
+        padding = { x = theme.space[3], y = theme.space[2] },
+      }, kw.text(action.title)),
+    }))
+  end
+  return kw.container({
+    background = theme.colors.surface,
+    border = theme.colors.border,
+    border_width = 1,
+    radius = theme.radius[4],
+    padding = theme.space[1],
+  }, kw.column({ align = "stretch", children = rows }))
+end
+
 local function footer(self, theme)
   local hint_color = theme.colors.text_tertiary
   -- One step below the label role (font_size[2]).
@@ -222,6 +264,7 @@ local function footer(self, theme)
       },
     })
   end
+  local entry = self.results[self.selected]
   local count = #self.results
   return kw.container({ padding = { x = theme.space[4], y = theme.space[2] } },
     kw.row({
@@ -232,6 +275,25 @@ local function footer(self, theme)
         kw.spacer(),
         hint("↑↓", "select"),
         hint("↵", "open"),
+        kw.anchored({
+          id = "actions-anchor",
+          popup = (self.actions_open and entry) and kw.popup({
+            edge = "top",
+            alignment = "end",
+            gap = theme.space[2],
+            width = 260,
+            content = function()
+              return action_menu(self, entry, theme)
+            end,
+            -- Escape with the menu open lands here (the runtime routes
+            -- it to popups first), so it closes the menu, not the
+            -- launcher.
+            on_close = function()
+              close_actions(self)
+            end,
+          }) or nil,
+          child = hint("↹", "actions"),
+        }),
         hint("esc", "close"),
       },
     })
@@ -242,11 +304,13 @@ end
 -- existence is app state; props.on_dismiss asks the shell to drop it.
 local Launcher = kw.stateful({
   init = function(self)
-    self.entries = apps.load()
+    self.entries = providers.load()
     self.counts = history.load()
     self.query = ""
     self.selected = 1
     self.results = rank(self.entries, self.counts, "")
+    self.actions_open = false
+    self.action_selected = 1
   end,
 
   build = function(self, context)
@@ -284,8 +348,8 @@ local Launcher = kw.stateful({
       data = theme,
       child = kw.actions({
         bindings = {
-          launch = function()
-            launch(self, self.results[self.selected])
+          activate = function()
+            activate(self)
           end,
           next = function()
             move_selection(self, 1)
@@ -293,15 +357,19 @@ local Launcher = kw.stateful({
           previous = function()
             move_selection(self, -1)
           end,
+          actions = function()
+            toggle_actions(self)
+          end,
           dismiss = function()
             dismiss(self)
           end,
         },
         child = kw.shortcuts({
           bindings = {
-            enter = "launch",
+            enter = "activate",
             down = "next",
             up = "previous",
+            tab = "actions",
             escape = "dismiss",
           },
           child = kw.box({

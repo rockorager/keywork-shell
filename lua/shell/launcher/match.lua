@@ -49,24 +49,17 @@ function M.fuzzy(needle, hay)
   return score - #hay * 0.2
 end
 
-local field_weights = {
-  { field = "name", weight = 1.0 },
-  { field = "keywords", weight = 0.8 },
-  { field = "generic", weight = 0.7 },
-  { field = "exec", weight = 0.6 },
-  { field = "comment", weight = 0.4 },
-}
-
--- Best weighted score across an entry's searchable fields, or nil.
+-- Best weighted score across an entry's search fields ({ text, weight }
+-- pairs, see shell.launcher.providers), or nil when nothing matches.
 function M.score(query, entry)
   if query == "" then
     return 0
   end
   local best = nil
-  for _, spec in ipairs(field_weights) do
-    local score = M.fuzzy(query, entry.search[spec.field])
+  for _, field in ipairs(entry.search) do
+    local score = M.fuzzy(query, field.text)
     if score then
-      score = score * spec.weight
+      score = score * field.weight
       if best == nil or score > best then
         best = score
       end

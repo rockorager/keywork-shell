@@ -15,9 +15,10 @@ MODULES := \
 	lua/shell/bar/tray.lua \
 	lua/shell/bar/util.lua \
 	lua/shell/launcher/init.lua \
-	lua/shell/launcher/apps.lua \
 	lua/shell/launcher/history.lua \
-	lua/shell/launcher/match.lua
+	lua/shell/launcher/match.lua \
+	lua/shell/launcher/providers/init.lua \
+	lua/shell/launcher/providers/apps.lua
 BIN := keywork-shell
 SERVICE := keywork-shell.service
 
@@ -35,7 +36,7 @@ run: check
 install: install-app install-service
 
 install-app: check
-	install -d $(DATADIR)/lua/shell/bar $(DATADIR)/lua/shell/launcher $(BINDIR)
+	install -d $(DATADIR)/lua/shell/bar $(DATADIR)/lua/shell/launcher/providers $(BINDIR)
 	install -m 0644 $(SCRIPT) $(DATADIR)/$(SCRIPT)
 	for file in $(MODULES); do install -m 0644 $$file $(DATADIR)/$$file; done
 	install -m 0755 bin/$(BIN) $(BINDIR)/$(BIN)

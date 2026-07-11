@@ -12,7 +12,7 @@ local function history_path()
   return state_dir() .. "/history"
 end
 
--- Launch counts by desktop file id: { ["firefox.desktop"] = 12, ... }
+-- Activation counts by entry id: { ["app:firefox.desktop"] = 12, ... }
 function M.load()
   local counts = {}
   local file = io.open(history_path(), "r")
@@ -22,6 +22,11 @@ function M.load()
   for line in file:lines() do
     local count, id = line:match("^(%d+)%s+(.+)$")
     if count then
+      -- Pre-provider rows were bare desktop ids; adopt them into the
+      -- apps namespace.
+      if not id:find(":", 1, true) then
+        id = "app:" .. id
+      end
       counts[id] = tonumber(count)
     end
   end

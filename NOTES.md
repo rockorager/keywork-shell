@@ -13,6 +13,13 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **Tab couldn't be bound as a shortcut.** `shortcutKeyForInput` mapped
+  `.tab` to null unconditionally, so the launcher's actions menu had no
+  key to open it. Fixed in keywork: plain tab is a bindable `ShortcutKey`
+  (`tab = "..."` in `kw.shortcuts`); unbound tab still falls through to
+  focus traversal and shift-tab always keeps reverse traversal (with
+  regression test "bound tab fires its shortcut instead of traversal").
+
 - **Auto-sized popups didn't resize when their content changed.** The Wi-Fi
   menu rebuilt with newly discovered rows, but its `xdg_popup` retained the
   height measured when it opened and clipped them. Fixed in keywork: dirty
