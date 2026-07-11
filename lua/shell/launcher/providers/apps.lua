@@ -2,24 +2,12 @@
 -- Action ...] groups — "New Private Window" and friends) become the
 -- entry's secondary actions.
 
+local kw = require("keywork")
 local loop = require("keywork.loop")
 local log = require("keywork.log")
 local xdg = require("keywork.xdg.applications")
 
 local M = {}
-
-local function list_desktop_files(dir)
-  local files = {}
-  local pipe = io.popen(string.format("find -L '%s' -type f -name '*.desktop' 2>/dev/null", dir))
-  if not pipe then
-    return files
-  end
-  for line in pipe:lines() do
-    table.insert(files, line)
-  end
-  pipe:close()
-  return files
-end
 
 local function exec_basename(exec)
   local first = exec:match("^%S+") or ""
@@ -55,7 +43,9 @@ local launch_serial = 0
 -- outside keywork-shell.service's cgroup — otherwise restarting the shell
 -- kills everything it ever launched. ExitType=cgroup keeps the unit alive
 -- for apps whose first process forks and exits (browsers, electron).
-local function systemd_wrap(argv, app)
+-- The activation token goes in via --setenv: the unit inherits the user
+-- manager's environment, not the spawn env xdg.launch sets.
+local function systemd_wrap(argv, app, token)
   launch_serial = launch_serial + 1
   local slug = (app.id or "app"):gsub("%.desktop$", ""):gsub("[^%w%-]", "-")
   local unit = ("app-keywork-%s-%d-%d"):format(slug, os.time(), launch_serial)
@@ -67,8 +57,12 @@ local function systemd_wrap(argv, app)
     "--property=ExitType=cgroup",
     "--unit=" .. unit,
     "--description=" .. (app.name or slug),
-    "--",
   }
+  if token then
+    table.insert(wrapped, "--setenv=XDG_ACTIVATION_TOKEN=" .. token)
+    table.insert(wrapped, "--setenv=DESKTOP_STARTUP_ID=" .. token)
+  end
+  table.insert(wrapped, "--")
   for _, arg in ipairs(argv) do
     table.insert(wrapped, arg)
   end
@@ -76,11 +70,20 @@ local function systemd_wrap(argv, app)
 end
 
 local function launch(app, action_id, ctx)
+  -- Requested on the input event, while the launcher still has focus
+  -- and the serial is fresh; nil when the compositor lacks
+  -- xdg-activation, and launch proceeds without focus-passing.
+  local token = kw.window.request_activation_token({
+    app_id = (app.id or ""):gsub("%.desktop$", ""),
+  })
   loop.spawn(function()
     local proc, err = xdg.launch(app, {
       action = action_id,
+      activation_token = token,
       terminal_argv = { os.getenv("TERMINAL") or "xterm", "-e" },
-      wrap = systemd_wrap,
+      wrap = function(argv, entry)
+        return systemd_wrap(argv, entry, token)
+      end,
     })
     if not proc then
       log.warn("launch failed", app.id, err or "unknown")
@@ -116,26 +119,18 @@ end
 
 function M.load()
   local entries = {}
-  local claimed = {}
-  for _, dir in ipairs(xdg.data_dirs()) do
-    local base = dir .. "/applications"
-    for _, path in ipairs(list_desktop_files(base)) do
-      local id = path:sub(#base + 2):gsub("/", "-")
-      -- First data dir wins, and a NoDisplay override still claims the id.
-      if not claimed[id] then
-        claimed[id] = true
-        local app = xdg.parse(path, { id = id })
-        if app and app.exec and not app.no_display and not app.hidden then
-          table.insert(entries, {
-            id = "app:" .. id,
-            title = app.name,
-            subtitle = app.generic_name or app.comment,
-            icon = app.icon,
-            search = search_fields(app),
-            actions = entry_actions(app),
-          })
-        end
-      end
+  -- list() handles data-dir precedence and shadowing (including
+  -- NoDisplay overrides); visibility filtering stays here.
+  for _, app in ipairs(xdg.list()) do
+    if app.exec and not app.no_display and not app.hidden then
+      table.insert(entries, {
+        id = "app:" .. app.id,
+        title = app.name,
+        subtitle = app.generic_name or app.comment,
+        icon = app.icon,
+        search = search_fields(app),
+        actions = entry_actions(app),
+      })
     end
   end
   return entries

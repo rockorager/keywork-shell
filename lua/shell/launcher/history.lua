@@ -1,11 +1,9 @@
+local xdg = require("keywork.xdg")
+
 local M = {}
 
 local function state_dir()
-  local dir = os.getenv("XDG_STATE_HOME")
-  if dir == nil or dir == "" then
-    dir = (os.getenv("HOME") or "") .. "/.local/state"
-  end
-  return dir .. "/keywork-shell"
+  return xdg.state_home() .. "/keywork-shell"
 end
 
 local function history_path()
@@ -36,7 +34,7 @@ end
 
 function M.bump(counts, id)
   counts[id] = (counts[id] or 0) + 1
-  os.execute(string.format("mkdir -p '%s'", state_dir()))
+  xdg.mkdir_all(state_dir())
   local file = io.open(history_path(), "w")
   if not file then
     return

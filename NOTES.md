@@ -18,6 +18,15 @@ Fix these in `../keywork`, then simplify here.
   Fixed in keywork: the script's directory is prepended to `package.path`
   (`<dir>/?.lua;<dir>/?/init.lua`). The entry point moved to `lua/init.lua`
   so `lua/` is the module root, and the bootstrap is gone.
+- **App enumeration was hand-rolled.** The apps provider shelled out to
+  `find` and reimplemented data-dir precedence/shadowing. Now keywork's
+  `xdg.applications.list()` owns enumeration; the provider only filters
+  `no_display`/`hidden` and shapes launcher entries.
+- **Launched apps couldn't take focus under focus-stealing prevention.**
+  Now `kw.window.request_activation_token()` is requested on the launch
+  input event and passed to `xdg.launch` — and injected into the transient
+  systemd unit via `--setenv`, since units inherit the user manager's
+  environment rather than the spawn env.
 - **SVG icons lost `<use>`-cloned shapes.** Even with the right file
   resolved, GNOME's Files icon rendered with one drawer handle instead
   of three: the icon draws one handle and clones the rest with
