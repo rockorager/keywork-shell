@@ -13,6 +13,16 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **App icons resolved to their symbolic variants.** GNOME Files showed
+  the grey symbolic cabinet instead of its full-color icon. index.theme
+  parsing let `Size=` clobber an already-parsed `MinSize=`/`MaxSize=`
+  (hicolor writes MinSize before Size), so `hicolor/scalable/apps`
+  collapsed to range [128, 256], launcher-sized lookups skipped it, and
+  the `-symbolic` name fallback in `symbolic/apps` won. Fixed in keywork
+  `e9abe79e`: MinSize/MaxSize are optionals that default to Size at use
+  time, making the parse order-independent (with regression test
+  "scalable directory size range survives any key order").
+
 - **Tab couldn't be bound as a shortcut.** `shortcutKeyForInput` mapped
   `.tab` to null unconditionally, so the launcher's actions menu had no
   key to open it. Fixed in keywork: plain tab is a bindable `ShortcutKey`
