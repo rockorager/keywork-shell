@@ -3,6 +3,7 @@ local kw = require("keywork")
 local bar = require("shell.bar")
 local ipc = require("shell.ipc")
 local launcher = require("shell.launcher")
+local notifications = require("shell.notifications")
 
 -- App-level state shared by the window set. Anything that decides which
 -- windows exist lives here and flips via kw.app.invalidate(); widget
@@ -30,6 +31,10 @@ if not ipc_handle and ipc_err == "name-taken" then
   io.stderr:write("keywork-shell: another instance already owns " .. ipc.name .. "\n")
   os.exit(1)
 end
+
+local notification_server = notifications.serve(function()
+  kw.app.invalidate()
+end)
 
 return kw.app({
   app_id = "dev.rockorager.keywork.Shell",
@@ -74,6 +79,44 @@ return kw.app({
           end,
         }),
       })
+    end
+
+    -- Include geometry in each window id: layer-shell margins and dimensions
+    -- cannot be updated live, so a card whose stack position or content height
+    -- changes must be recreated with its new declaration.
+    if notification_server and ctx.outputs[1] then
+      local output = ctx.outputs[1]
+      -- A zero-zone layer surface is already placed inside the bar's
+      -- exclusive zone; this margin is only the visual gap below it.
+      local top = notifications.gap
+      local available = math.max(0, output.height - bar.height - top - notifications.margin)
+      local used = 0
+      for _, notification in ipairs(notification_server:visible()) do
+        local height = notifications.height_for(notification)
+        if used > 0 and used + height > available then
+          break
+        end
+        windows[#windows + 1] = kw.window({
+          id = "notification:" .. notification.id .. ":" .. used .. ":" .. height,
+          output = output.name,
+          width = notifications.width,
+          height = height,
+          layer_shell = {
+            layer = "overlay",
+            anchor = { "top", "right" },
+            margin = {
+              top = top + used,
+              right = notifications.margin,
+            },
+          },
+          child = notifications.Card({
+            key = "notification-card",
+            server = notification_server,
+            notification = notification,
+          }),
+        })
+        used = used + height + notifications.gap
+      end
     end
 
     return windows

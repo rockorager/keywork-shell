@@ -93,3 +93,14 @@ Fix these in `../keywork`, then simplify here.
 - **`--script=` swallows app args.** Fixed in keywork `708a6ac1`:
   `keywork --script=foo.lua bar` now lands `bar` in the Lua `arg` table.
   `bin/keywork-shell` already passed `"$@"` through; no change needed here.
+- **D-Bus introspection collapsed compound signatures into one argument.**
+  The notification daemon's `Notify` signature (`susssasa{sv}i`) worked at
+  runtime, but generated introspection described it as one argument, causing
+  `gdbus` to warn and miscount parameters. Fixed in keywork: introspection now
+  emits one `<arg>` per complete D-Bus type, with a regression test covering
+  basic, array, and dictionary arguments.
+- **D-Bus byte arrays expanded into Lua number tables.** Notification
+  `image-data` arrived as one boxed Lua number per byte, then had to be copied
+  again into the image widget's ARGB input. Fixed in keywork: `ay` values now
+  decode directly to binary Lua strings, matching the image widget's fast
+  input path (with a decode regression test).

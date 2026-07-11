@@ -14,6 +14,7 @@ MODULES := \
 	lua/shell/bar/sway.lua \
 	lua/shell/bar/tray.lua \
 	lua/shell/bar/util.lua \
+	lua/shell/notifications.lua \
 	lua/shell/launcher/init.lua \
 	lua/shell/launcher/history.lua \
 	lua/shell/launcher/match.lua \
