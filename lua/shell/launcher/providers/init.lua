@@ -6,6 +6,7 @@
 --     title = "Firefox",
 --     subtitle = "Web Browser",    -- optional, right-aligned in the row
 --     icon = "firefox",            -- xdg icon name or absolute path; optional
+--     icon_tint = true,            -- tint monochrome glyph icons with the theme text color
 --     search = {                   -- lowercase haystacks for the matcher
 --       { text = "firefox", weight = 1.0 },
 --     },
@@ -21,6 +22,7 @@ local M = {}
 
 M.list = {
   require("shell.launcher.providers.apps"),
+  require("shell.launcher.providers.power"),
 }
 
 -- Entries from every provider, concatenated. sort_key is the ranking

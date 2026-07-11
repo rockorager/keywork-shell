@@ -18,7 +18,8 @@ MODULES := \
 	lua/shell/launcher/history.lua \
 	lua/shell/launcher/match.lua \
 	lua/shell/launcher/providers/init.lua \
-	lua/shell/launcher/providers/apps.lua
+	lua/shell/launcher/providers/apps.lua \
+	lua/shell/launcher/providers/power.lua
 BIN := keywork-shell
 SERVICE := keywork-shell.service
 
