@@ -4,6 +4,7 @@ local bar = require("shell.bar")
 local ipc = require("shell.ipc")
 local launcher = require("shell.launcher")
 local notifications = require("shell.notifications")
+local osd = require("shell.osd")
 
 -- App-level state shared by the window set. Anything that decides which
 -- windows exist lives here and flips via kw.app.invalidate(); widget
@@ -20,11 +21,21 @@ local function set_launcher_open(open)
   kw.app.invalidate()
 end
 
+local osd_controller = osd.new(function()
+  kw.app.invalidate()
+end)
+
 -- Keybindings reach the running shell over the session bus:
 --   bindsym $mod+Return exec keywork-shell launcher
 local ipc_handle, ipc_err = ipc.serve({
   toggle_launcher = function()
     set_launcher_open(not shell.launcher_open)
+  end,
+  adjust_audio = function(kind, action)
+    return osd_controller:adjust_audio(kind, action)
+  end,
+  adjust_brightness = function(action)
+    return osd_controller:adjust_brightness(action)
   end,
 })
 if not ipc_handle and ipc_err == "name-taken" then
@@ -77,6 +88,27 @@ return kw.app({
           on_dismiss = function()
             set_launcher_open(false)
           end,
+        }),
+      })
+    end
+
+    local level = osd_controller:visible()
+    if level and ctx.outputs[1] then
+      windows[#windows + 1] = kw.window({
+        id = "osd",
+        output = ctx.outputs[1].name,
+        width = osd.width,
+        height = osd.height,
+        layer_shell = {
+          layer = "overlay",
+          anchor = { "bottom" },
+          margin = { bottom = osd.margin },
+        },
+        child = osd.Level({
+          key = "osd-level",
+          kind = level.kind,
+          value = level.value,
+          muted = level.muted,
         }),
       })
     end

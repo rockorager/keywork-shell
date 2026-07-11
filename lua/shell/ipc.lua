@@ -10,6 +10,8 @@ M.interface = "dev.rockorager.keywork"
 -- Owns dev.rockorager.keywork on the session bus and exports the shell's
 -- control interface so keybindings can reach the running instance:
 --   keywork-shell launcher   (dbus-send under the hood)
+--   keywork-shell volume up
+--   keywork-shell brightness down
 -- Owning the name also makes the shell single-instance. Returns nil plus
 -- "no-bus" when the session bus is unavailable, or nil plus "name-taken"
 -- when another shell already owns the name.
@@ -37,6 +39,18 @@ function M.serve(handlers)
           in_signature = "",
           call = function()
             handlers.toggle_launcher()
+          end,
+        },
+        AdjustAudio = {
+          in_signature = "ss",
+          call = function(_, kind, action)
+            assert(handlers.adjust_audio(kind, action), "invalid audio OSD action")
+          end,
+        },
+        AdjustBrightness = {
+          in_signature = "s",
+          call = function(_, action)
+            assert(handlers.adjust_brightness(action), "invalid brightness OSD action")
           end,
         },
       },

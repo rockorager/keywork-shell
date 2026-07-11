@@ -5,6 +5,7 @@ DATADIR ?= $(PREFIX)/share/keywork-shell
 SYSTEMD_USER_DIR ?= $(HOME)/.config/systemd/user
 
 SCRIPT := lua/init.lua
+STORYBOOK := lua/storybook.lua
 MODULES := \
 	lua/shell/ipc.lua \
 	lua/shell/bar/init.lua \
@@ -15,6 +16,7 @@ MODULES := \
 	lua/shell/bar/tray.lua \
 	lua/shell/bar/util.lua \
 	lua/shell/notifications.lua \
+	lua/shell/osd.lua \
 	lua/shell/launcher/init.lua \
 	lua/shell/launcher/history.lua \
 	lua/shell/launcher/match.lua \
@@ -28,8 +30,8 @@ SERVICE := keywork-shell.service
 
 all: check
 
-check: $(SCRIPT) $(MODULES)
-	for file in $(SCRIPT) $(MODULES); do luajit -b $$file /tmp/keywork-shell-check.luac || exit 1; done
+check: $(SCRIPT) $(STORYBOOK) $(MODULES)
+	for file in $(SCRIPT) $(STORYBOOK) $(MODULES); do luajit -b $$file /tmp/keywork-shell-check.luac || exit 1; done
 	rm -f /tmp/keywork-shell-check.luac
 
 run: check

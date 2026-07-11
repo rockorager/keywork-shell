@@ -28,10 +28,12 @@ function M.height_for(notification)
     body_lines = math.min(body_lines, 2)
   end
 
-  local height = body_lines == 0 and 76 or 94 + (body_lines - 1) * 24
+  -- Radix text size 2 uses a 20px line box. Action cards add one compact
+  -- 28px button row separated from the content by space 2 (8px).
+  local height = body_lines == 0 and 76 or 94 + (body_lines - 1) * 20
   for _, action in ipairs(notification.actions or {}) do
     if action.key ~= "default" then
-      return height + 52
+      return height + 36
     end
   end
   return height
@@ -598,7 +600,7 @@ local NotificationCard = kw.stateful({
       padding = { x = theme.space[3], y = theme.space[2] },
     }, kw.column({
       align = "stretch",
-      spacing = theme.space[1],
+      spacing = #actions > 0 and theme.space[2] or 0,
       children = children,
     })))
     return kw.theme({

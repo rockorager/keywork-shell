@@ -5,11 +5,6 @@ Fix these in `../keywork`, then simplify here.
 
 ## Open
 
-- **Seats without pointer capability crash window creation.** On headless
-  sway (`WLR_BACKENDS=headless`, no input devices) keywork dies with
-  `wl_seat.get_pointer called when no pointer capability has existed` and
-  `window bar:HEADLESS-1: creation failed: error.DispatchFailed`. Pointer
-  binding should follow `wl_seat.capabilities` instead of being assumed.
 
 ## Resolved
 
@@ -30,10 +25,9 @@ Fix these in `../keywork`, then simplify here.
 - **SVG icons lost `<use>`-cloned shapes.** Even with the right file
   resolved, GNOME's Files icon rendered with one drawer handle instead
   of three: the icon draws one handle and clones the rest with
-  `<use xlink:href>`, which nanosvg silently drops (librsvg-based
-  launchers like fuzzel render it fully). Fixed in keywork `e1e8eee4`:
-  a text-level pass expands each resolvable `<use>` into a
-  `<g transform>` clone of its target before rasterizing.
+  `<use xlink:href>`, which nanosvg silently dropped. Originally fixed
+  in keywork `e1e8eee4` with a text-level expansion pass; superseded by
+  switching keywork to resvg, which supports `<use>` directly.
 
 - **App icons resolved to their symbolic variants.** GNOME Files showed
   the grey symbolic cabinet instead of its full-color icon. index.theme

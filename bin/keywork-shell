@@ -8,6 +8,33 @@ launcher)
     --dest=dev.rockorager.keywork /dev/rockorager/keywork \
     dev.rockorager.keywork.ToggleLauncher >/dev/null
   ;;
+volume|microphone)
+  kind=$1
+  action=${2-}
+  case "$action" in
+  up|down|mute) ;;
+  *)
+    echo "usage: keywork-shell $kind {up|down|mute}" >&2
+    exit 2
+    ;;
+  esac
+  exec dbus-send --session --print-reply --type=method_call \
+    --dest=dev.rockorager.keywork /dev/rockorager/keywork \
+    dev.rockorager.keywork.AdjustAudio string:"$kind" string:"$action" >/dev/null
+  ;;
+brightness)
+  action=${2-}
+  case "$action" in
+  up|down) ;;
+  *)
+    echo "usage: keywork-shell brightness {up|down}" >&2
+    exit 2
+    ;;
+  esac
+  exec dbus-send --session --print-reply --type=method_call \
+    --dest=dev.rockorager.keywork /dev/rockorager/keywork \
+    dev.rockorager.keywork.AdjustBrightness string:"$action" >/dev/null
+  ;;
 esac
 
 app_dir=${KEYWORK_SHELL_DATADIR:-${XDG_DATA_HOME:-$HOME/.local/share}/keywork-shell}
