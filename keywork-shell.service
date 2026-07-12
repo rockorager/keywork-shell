@@ -5,6 +5,8 @@ After=graphical-session.target
 Requisite=graphical-session.target
 
 [Service]
+Type=dbus
+BusName=dev.rockorager.keywork
 ExecStart=%h/.local/bin/keywork-shell
 Restart=on-failure
 

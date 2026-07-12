@@ -153,6 +153,7 @@ function M.append_windows(windows, outputs)
       layer_shell = {
         layer = "background",
         anchor = { "top", "bottom", "left", "right" },
+        exclusive_zone = -1,
         pointer = "none",
       },
       child = Background({ output = output.name }),
