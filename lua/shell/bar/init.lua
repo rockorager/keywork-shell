@@ -38,7 +38,7 @@ local Bar = kw.stateful({
     children[#children + 1] = status.Items({ key = "status", colors = palette })
 
     return kw.theme({
-      data = theme,
+      data = palette.theme,
       child = kw.column({
         align = "stretch",
         children = {

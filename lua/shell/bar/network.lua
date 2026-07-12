@@ -53,6 +53,63 @@ local function pill_from_values(palette, operstate, essid, percent, on_tap)
   return status_pill(palette, "network", name, nil, color, { on_tap = on_tap })
 end
 
+local function wifi_menu(palette, wifi, on_select)
+  wifi = wifi or {}
+  on_select = on_select or function(_) end
+  local rows = {}
+
+  local header_children = { label("Wi-Fi", palette, palette.muted), kw.spacer() }
+  if wifi.status then
+    table.insert(header_children, label(wifi.status, palette, palette.subtle))
+  elseif wifi.scanning then
+    table.insert(header_children, label("Scanning…", palette, palette.subtle))
+  end
+  table.insert(rows, kw.menu_label({
+    child = kw.row({ align = "center", children = header_children }),
+  }))
+
+  for _, entry in ipairs(wifi.networks or {}) do
+    local color = entry.connected and palette.foreground or palette.muted
+    local children = {
+      kw.icon({ name = wifi_signal_icon(entry.percent), size = 16, color = color }),
+      kw.expanded(label(entry.name, palette, color)),
+    }
+    if entry.secured and not entry.known then
+      table.insert(children, kw.icon({ name = "network-wireless-encrypted", size = 14, color = palette.subtle }))
+    end
+    if entry.connected then
+      table.insert(children, kw.icon({ name = "object-select", size = 16, color = palette.foreground }))
+    end
+    table.insert(rows, kw.menu_item({
+      id = "wifi-" .. entry.path,
+      on_tap = function() on_select(entry) end,
+      child = kw.row({
+        spacing = palette.space[2],
+        align = "center",
+        children = children,
+      }),
+    }))
+  end
+
+  if not wifi.networks or #wifi.networks == 0 then
+    table.insert(rows, kw.padding({
+      x = palette.space[3],
+      y = palette.space[2],
+      child = label(wifi.networks and "No networks found" or "Loading…", palette, palette.subtle),
+    }))
+  end
+
+  return kw.menu({
+    child = kw.column({ children = rows }),
+  })
+end
+
+local WifiMenu = kw.stateful({
+  build = function(self)
+    return wifi_menu(self.props.colors, self.props.wifi, self.props.on_select)
+  end,
+})
+
 local SHELL_NETWORK_SCRIPT = [==[
 iface=$(ls /sys/class/net 2>/dev/null | grep -E '^wl|^wlan' | head -n1)
 if [ -z "$iface" ]; then
@@ -552,70 +609,16 @@ local Network = kw.stateful({
 
   build_wifi_menu = function(self)
     local palette = self.props.colors
-    local rows = {}
-
-    local header_children = { label("Wi-Fi", palette, palette.muted), kw.spacer() }
-    if self.wifi_status then
-      table.insert(header_children, label(self.wifi_status, palette, palette.subtle))
-    elseif self.wifi_scanning then
-      table.insert(header_children, label("Scanning…", palette, palette.subtle))
-    end
-    table.insert(rows, kw.padding({
-      x = palette.space[3],
-      y = palette.space[2],
-      child = kw.row({ align = "center", children = header_children }),
-    }))
-
-    for _, entry in ipairs(self.wifi_networks or {}) do
-      local color = entry.connected and palette.foreground or palette.muted
-      local children = {
-        kw.icon({ name = wifi_signal_icon(entry.percent), size = 16, color = color }),
-        kw.expanded(label(entry.name, palette, color)),
-      }
-      if entry.secured and not entry.known then
-        table.insert(children, kw.icon({ name = "network-wireless-encrypted", size = 14, color = palette.subtle }))
-      end
-      if entry.connected then
-        table.insert(children, kw.icon({ name = "object-select", size = 16, color = palette.foreground }))
-      end
-      -- The gesture child must be a container (box): hover_background
-      -- restyles the box directly, and its radius rounds the highlight.
-      table.insert(rows, kw.gesture({
-        id = "wifi-" .. entry.path,
-        hover_background = palette.hover,
-        on_tap = function()
-          self:connect_wifi(entry)
-        end,
-        child = kw.container({
-          radius = palette.radius[4],
-          padding = { x = palette.space[3], y = palette.space[2] },
-        }, kw.row({
-          spacing = palette.space[2],
-          align = "center",
-          children = children,
-        })),
-      }))
-    end
-
-    if not self.wifi_networks or #self.wifi_networks == 0 then
-      table.insert(rows, kw.padding({
-        x = palette.space[3],
-        y = palette.space[2],
-        child = label(self.wifi_networks and "No networks found" or "Loading…", palette, palette.subtle),
-      }))
-    end
-
-    return kw.container({
-      background = palette.background,
-      border = palette.border,
-      border_width = 1,
-      radius = palette.radius[4],
-      padding = palette.space[1],
-      child = kw.column({ children = rows }),
-    })
+    return wifi_menu(palette, {
+      status = self.wifi_status,
+      scanning = self.wifi_scanning,
+      networks = self.wifi_networks,
+    }, function(entry)
+      self:connect_wifi(entry)
+    end)
   end,
 
-  build = function(self, context)
+  build = function(self)
     local palette = self.props.colors
     local net = self.net or { operstate = "down", essid = "", percent = 0 }
     return kw.anchored({
@@ -641,4 +644,5 @@ local Network = kw.stateful({
 
 return {
   Network = Network,
+  Menu = WifiMenu,
 }

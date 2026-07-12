@@ -213,12 +213,14 @@ end
 -- The actions menu for the selected entry, shown as a popup anchored to
 -- the footer's actions hint. Selection mirrors the result list: one
 -- highlight driven by both keyboard and pointer.
-local function action_menu(self, entry, theme)
+local function action_menu(self, entry)
   local rows = {}
   for index, action in ipairs(entry.actions) do
     local selected = index == self.action_selected
-    table.insert(rows, kw.pressable({
+    table.insert(rows, kw.menu_item({
       id = "action-" .. index,
+      selected = selected,
+      hover_background = false,
       on_hover = function(hovered)
         if hovered and self.action_selected ~= index then
           self.action_selected = index
@@ -228,20 +230,12 @@ local function action_menu(self, entry, theme)
       on_tap = function()
         run_action(self, entry, action)
       end,
-      child = kw.container({
-        background = selected and theme.colors.fill or nil,
-        radius = theme.radius[4],
-        padding = { x = theme.space[3], y = theme.space[2] },
-      }, kw.text(action.title)),
+      child = kw.text(action.title),
     }))
   end
-  return kw.container({
-    background = theme.colors.surface,
-    border = theme.colors.border,
-    border_width = 1,
-    radius = theme.radius[4],
-    padding = theme.space[1],
-  }, kw.column({ align = "stretch", children = rows }))
+  return kw.menu({
+    child = kw.column({ align = "stretch", children = rows }),
+  })
 end
 
 local function footer(self, theme)
@@ -277,7 +271,7 @@ local function footer(self, theme)
             gap = theme.space[2],
             width = 260,
             content = function()
-              return action_menu(self, entry, theme)
+              return action_menu(self, entry)
             end,
             -- Escape with the menu open lands here (the runtime routes
             -- it to popups first), so it closes the menu, not the

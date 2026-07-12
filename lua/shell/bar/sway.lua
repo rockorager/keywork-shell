@@ -133,7 +133,6 @@ local function workspaces(palette, sway)
     local selected = workspace.urgent or workspace.focused
     table.insert(items, kw.chip({
       id = "workspace-" .. name,
-      theme = palette.chip_theme,
       label = name,
       selected = selected,
       align = "center",

@@ -31,7 +31,6 @@ local function status_pill(palette, id, icon_name, text, color, options)
   })
   return kw.chip({
     id = id,
-    theme = palette.chip_theme,
     child = child,
     align = "center",
     on_tap = options.on_tap,

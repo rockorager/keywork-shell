@@ -1,6 +1,81 @@
+local kw = require("keywork")
 local sb = require("keywork.storybook")
+local audio = require("shell.audio")
+local bar_colors = require("shell.bar.colors")
+local network = require("shell.bar.network")
 local notifications = require("shell.notifications")
 local osd = require("shell.osd")
+
+local function menu_story(id, name, width, render)
+  return sb.story({
+    id = id,
+    group = "Menus",
+    name = name,
+    viewport = { width = width, height = "content", scale = 2 },
+    color_scheme = "dark",
+    render = function(context)
+      local theme = kw.theme_for(context)
+      local palette = bar_colors.palette(theme)
+      return kw.theme({
+        data = palette.theme,
+        child = render(palette),
+      })
+    end,
+  })
+end
+
+local function audio_menu_story()
+  return menu_story("menus/audio", "Audio devices", 420, function(palette)
+    return audio.Menu({
+      colors = palette,
+      audio = {
+        outputs = {
+          {
+            id = 1,
+            name = "alsa_output.pci-0000_00_1f.3.analog-stereo",
+            description = "Built-in Audio Analog Stereo",
+            icon_name = "audio-card",
+            available = true,
+            default = true,
+          },
+          {
+            id = 2,
+            name = "alsa_output.pci-0000_01_00.1.hdmi-stereo",
+            description = "HDMI / DisplayPort",
+            icon_name = "video-display",
+            available = true,
+          },
+        },
+        inputs = {
+          {
+            id = 3,
+            name = "alsa_input.pci-0000_00_1f.3.analog-stereo",
+            description = "Built-in Audio Microphone",
+            icon_name = "audio-input-microphone",
+            available = true,
+            default = true,
+          },
+        },
+      },
+    })
+  end)
+end
+
+local function wifi_menu_story()
+  return menu_story("menus/wifi", "Wi-Fi networks", 300, function(palette)
+    return network.Menu({
+      colors = palette,
+      wifi = {
+        networks = {
+          { path = "/story/home", name = "Home", percent = 92, secured = true, known = true, connected = true },
+          { path = "/story/cafe", name = "Coffee Shop", percent = 68 },
+          { path = "/story/phone", name = "Phone Hotspot", percent = 44, secured = true },
+          { path = "/story/neighbor", name = "Neighbor", percent = 18, secured = true, known = true },
+        },
+      },
+    })
+  end)
+end
 
 local function osd_story(id, name, model)
   return sb.story({
@@ -50,6 +125,8 @@ end
 return sb.book({
   title = "keywork-shell",
   stories = {
+    audio_menu_story(),
+    wifi_menu_story(),
     osd_story("osd/volume", "Volume", {
       key = "volume",
       kind = "volume",

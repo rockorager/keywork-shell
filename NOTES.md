@@ -5,9 +5,19 @@ Fix these in `../keywork`, then simplify here.
 
 ## Open
 
+- **Popup content cannot open a nested popup.** A submenu can be composed from
+  `kw.anchored`, `kw.popup`, and the menu widgets, but popup reconciliation
+  currently scans only the parent window's runtime. Keywork needs hierarchical
+  popup ownership, one-level Escape dismissal, and nested input routing before
+  a `kw.submenu_item` can provide correct behavior.
 
 ## Resolved
 
+- **Menus repeated their surface and item styling at every call site.**
+  Keywork now provides ambient-theme `kw.menu`, `kw.menu_item`,
+  `kw.menu_label`, and `kw.menu_separator` composition widgets. The audio,
+  Wi-Fi, and launcher action menus share them while retaining their own
+  content, placement, and selection behavior.
 - **PipeWire audio could only be observed, not controlled.** The shell would
   still have needed `wpctl` for volume/mute and default-device selection after
   adopting `keywork.audio`. Keywork now streams node volume/mute properties,
@@ -88,8 +98,8 @@ Fix these in `../keywork`, then simplify here.
   `theme.font_size[1]`.
 - **`kw.chip` has no component theme.** Fixed in keywork `7e84d0aa`: chips
   read metrics/colors from `theme.components.chip` (explicit options win).
-  The bar defines its chip design once in `colors.lua` (`palette.chip_theme`)
-  and call sites only pass what differs.
+  The bar defines its chip design once in the ambient bar theme, and call
+  sites only pass what differs; widgets no longer require an explicit theme.
 - **`--script=` swallows app args.** Fixed in keywork `708a6ac1`:
   `keywork --script=foo.lua bar` now lands `bar` in the Lua `arg` table.
   `bin/keywork-shell` already passed `"$@"` through; no change needed here.

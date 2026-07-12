@@ -304,7 +304,6 @@ local TrayItems = kw.stateful({
       })
       table.insert(items, kw.chip({
         id = "tray-" .. item.id,
-        theme = palette.chip_theme,
         child = icon,
         align = "center",
         on_tap = function()
