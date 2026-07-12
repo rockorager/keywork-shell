@@ -45,10 +45,14 @@ local function entry_icon(entry, size, theme)
   if not name or name == "" then
     name = "application-x-executable"
   end
-  -- Monochrome glyph icons (icon_tint entries) take the theme's text
-  -- color so they keep contrast on the selection highlight.
+  -- Tinted entries prefer a monochrome symbolic icon engine-side, but
+  -- retain the original desktop icon when no symbolic asset exists.
   local color = entry.icon_tint and theme.colors.text_secondary or nil
-  return kw.icon({ name = name, size = size, color = color })
+  return kw.icon({
+    name = name,
+    size = size,
+    color = color,
+  })
 end
 
 local function dismiss(self)

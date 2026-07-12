@@ -147,7 +147,11 @@ local function device_rows(palette, kind, devices, on_select)
           spacing = palette.space[2],
           align = "center",
           children = {
-            kw.icon({ name = device_icon(kind, device), size = 16, color = color }),
+            kw.icon({
+              name = device_icon(kind, device),
+              size = 16,
+              color = palette.muted,
+            }),
             kw.expanded(menu_label(device_label(kind, device), palette, color)),
             device.default and kw.icon({
               name = "object-select",
