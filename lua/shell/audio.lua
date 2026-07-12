@@ -110,10 +110,29 @@ end
 local function device_icon(kind, device)
   local generic = kind == "sink" and "audio-volume-high" or "audio-input-microphone"
   local name = device.icon_name
-  if not name or name == "" or name == "audio-card" or name == "audio-speakers" then
+  if not name or name == "" or name:match("^audio%-card") or name == "audio-speakers" then
     return generic
   end
+  if name == "audio-headphones-bluetooth" then
+    return "audio-headphones"
+  end
   return name
+end
+
+local function device_label(kind, device)
+  local internal = device.bus == "pci" or device.bus == "platform"
+  local nick = device.nick
+  if internal then
+    if kind == "sink" and device.port_type == "speaker" then
+      return "Built-in Speakers"
+    elseif kind == "source" and device.port_type == "mic" then
+      return "Built-in Microphone"
+    end
+  end
+  if nick and nick ~= "" then
+    return nick
+  end
+  return device.description or device.name
 end
 
 local function device_rows(palette, kind, devices, on_select)
@@ -129,7 +148,7 @@ local function device_rows(palette, kind, devices, on_select)
           align = "center",
           children = {
             kw.icon({ name = device_icon(kind, device), size = 16, color = color }),
-            kw.expanded(menu_label(device.description or device.name, palette, color)),
+            kw.expanded(menu_label(device_label(kind, device), palette, color)),
             device.default and kw.icon({
               name = "object-select",
               size = 16,
