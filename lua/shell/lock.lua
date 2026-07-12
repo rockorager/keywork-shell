@@ -35,6 +35,23 @@ M.View = kw.stateful({
     local time = self.props.time or clock.format_time(timestamp)
     local date = self.props.date or clock.format_date(timestamp)
 
+    local clock_view = kw.column({
+      align = "center",
+      spacing = theme.space[1],
+      children = {
+        kw.text(date, {
+          color = theme.colors.text_secondary,
+          font_size = 18,
+          role = "label",
+        }),
+        kw.text(time, {
+          color = theme.colors.text,
+          font_size = 64,
+          line_height = 72,
+        }),
+      },
+    })
+
     local card = kw.sized({
       width = 360,
       child = kw.container({
@@ -73,25 +90,17 @@ M.View = kw.stateful({
       data = theme,
       child = kw.box({ background = theme.colors.background }, kw.center(kw.column({
         align = "center",
-        spacing = theme.space[5],
         children = {
-          kw.column({
+          kw.expanded(kw.column({
             align = "center",
-            spacing = theme.space[1],
             children = {
-              kw.text(date, {
-                color = theme.colors.text_secondary,
-                font_size = 18,
-                role = "label",
-              }),
-              kw.text(time, {
-                color = theme.colors.text,
-                font_size = 64,
-                line_height = 72,
-              }),
+              kw.spacer(2),
+              clock_view,
+              kw.spacer(),
             },
-          }),
+          })),
           card,
+          kw.expanded(kw.spacer()),
         },
       }))),
     })
