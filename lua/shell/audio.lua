@@ -77,10 +77,6 @@ function M.set_default(device)
   return monitor:set_default(device.kind, device.name)
 end
 
-local function clamp(value, minimum, maximum)
-  return math.max(minimum, math.min(maximum, value))
-end
-
 local function menu_label(value, palette, color)
   return kw.label(value, {
     color = color or palette.foreground,
@@ -101,10 +97,6 @@ local function volume_icon(kind, device)
   return prefix .. "-high"
 end
 
-local function volume_percent(device)
-  return math.floor(clamp(device and device.volume or 0, 0, 10) * 100 + 0.5)
-end
-
 local function volume_status(palette, device, on_tap)
   local color = palette.accent
   if not device or device.muted or (device.volume or 0) <= 0 then
@@ -112,22 +104,6 @@ local function volume_status(palette, device, on_tap)
   end
   return status_pill(palette, "volume", volume_icon("volume", device), nil, color, {
     on_tap = on_tap,
-  })
-end
-
-local function icon_button(palette, id, icon, color, selected, on_tap)
-  return kw.gesture({
-    id = id,
-    hover_background = palette.hover,
-    on_tap = on_tap,
-    child = kw.container({
-      background = selected and palette.active or nil,
-      radius = palette.radius[4],
-      min_width = 28,
-      min_height = 28,
-      horizontal_align = "center",
-      vertical_align = "center",
-    }, kw.icon({ name = icon, size = 16, color = color })),
   })
 end
 
@@ -144,38 +120,17 @@ local Audio = kw.stateful({
     end)
   end,
 
-  adjust = function(self, kind, action)
-    local _, err = M.adjust(kind, action, 1)
-    if err then log.warn("audio control failed", err) end
-  end,
-
   select_device = function(self, device)
     local ok, err = M.set_default(device)
     if not ok then log.warn("audio default selection failed", err or "unknown") end
   end,
 
-  section_row = function(self, kind, title, device)
+  section_row = function(self, title)
     local palette = self.props.colors
-    local color = device and palette.foreground or palette.muted
     return kw.padding({
       x = palette.space[3],
       y = palette.space[2],
-      child = kw.row({
-        spacing = palette.space[2],
-        align = "center",
-        children = {
-          menu_label(title, palette, palette.muted),
-          kw.spacer(),
-          menu_label(device and device.volume ~= nil and (tostring(volume_percent(device)) .. "%") or "—",
-            palette, palette.muted),
-          icon_button(palette, kind .. "-mute", volume_icon(kind, {
-            volume = device and device.volume or 0,
-            muted = true,
-          }), color, device and device.muted == true, function()
-            if device then self:adjust(kind, "mute") end
-          end),
-        },
-      }),
+      child = menu_label(title, palette, palette.muted),
     })
   end,
 
@@ -222,11 +177,11 @@ local Audio = kw.stateful({
   build_menu = function(self)
     local palette = self.props.colors
     local audio = self.audio or { outputs = {}, inputs = {} }
-    local rows = { self:section_row("volume", "Output", audio.output) }
+    local rows = { self:section_row("Output") }
     for _, row in ipairs(self:device_rows("sink", audio.outputs or {})) do
       rows[#rows + 1] = row
     end
-    rows[#rows + 1] = self:section_row("microphone", "Input", audio.input)
+    rows[#rows + 1] = self:section_row("Input")
     for _, row in ipairs(self:device_rows("source", audio.inputs or {})) do
       rows[#rows + 1] = row
     end
