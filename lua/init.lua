@@ -2,10 +2,12 @@ local kw = require("keywork")
 
 local background = require("background")
 local bar = require("shell.bar")
+local idle = require("shell.idle")
 local ipc = require("shell.ipc")
 local launcher = require("shell.launcher")
 local notifications = require("shell.notifications")
 local osd = require("shell.osd")
+local session = require("shell.session")
 
 -- App-level state shared by the window set. Anything that decides which
 -- windows exist lives here and flips via kw.app.invalidate(); widget
@@ -26,11 +28,21 @@ local osd_controller = osd.new(function()
   kw.app.invalidate()
 end)
 
+local session_controller = session.start()
+local idle_controller = idle.start({
+  lock = function()
+    session_controller:lock()
+  end,
+})
+
 -- Keybindings reach the running shell over the session bus:
 --   bindsym $mod+Return exec keywork-shell launcher
 local ipc_handle, ipc_err = ipc.serve({
   toggle_launcher = function()
     set_launcher_open(not shell.launcher_open)
+  end,
+  lock = function()
+    session_controller:lock()
   end,
   adjust_audio = function(kind, action)
     return osd_controller:adjust_audio(kind, action)
@@ -57,6 +69,12 @@ end)
 return kw.app({
   app_id = "dev.rockorager.keywork.Shell",
   backend = "cpu",
+  stop = function()
+    if idle_controller then
+      idle_controller:stop()
+    end
+    session_controller:stop()
+  end,
   windows = function(ctx)
     local windows = {}
     background.append_windows(windows, ctx.outputs)

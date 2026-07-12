@@ -13,6 +13,16 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **D-Bus replies could not carry Unix file descriptors.** A safe logind
+  delay inhibitor requires retaining the descriptor returned by `Inhibit`
+  until the lock screen is compositor-confirmed. Keywork now decodes `h`
+  values as owning Lua userdata with explicit/idempotent close and GC cleanup.
+- **Keywork could not implement a secure session lock.** It lacked the
+  `ext-session-lock-v1` role and password-oriented text input behavior. Keywork
+  now exposes compositor-backed multi-output session locks, while obscured
+  inputs support submit-and-clear and zero their backing buffers. PAM remains
+  a shell-owned native module, and the lock runs as a separate short-lived
+  process so the long-running shell service never handles the password.
 - **Background surfaces lacked image files, full-output sizing, and input
   passthrough.** Keywork's image widget only accepted decoded ARGB pixels,
   managed layer windows only delegated width (not height) to their anchors,

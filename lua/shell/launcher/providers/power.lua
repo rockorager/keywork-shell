@@ -14,7 +14,7 @@ local commands = {
     title = "Lock Screen",
     icon = "system-lock-screen-symbolic",
     keywords = "lock screensaver",
-    argv = { "loginctl", "lock-session" },
+    argv = { "keywork-shell", "lock" },
   },
   {
     id = "suspend",

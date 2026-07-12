@@ -7,11 +7,6 @@ local function trim(value)
   return trimmed
 end
 
-local function seconds_until_next_minute()
-  local now = os.date("*t")
-  return 60 - now.sec
-end
-
 local function label(value, palette, color)
   return kw.label(value, { color = color or palette.foreground })
 end
@@ -38,7 +33,6 @@ local function status_pill(palette, id, icon_name, text, color, options)
 end
 
 M.trim = trim
-M.seconds_until_next_minute = seconds_until_next_minute
 M.label = label
 M.status_pill = status_pill
 

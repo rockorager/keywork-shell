@@ -10,6 +10,7 @@ M.interface = "dev.rockorager.keywork"
 -- Owns dev.rockorager.keywork on the session bus and exports the shell's
 -- control interface so keybindings can reach the running instance:
 --   keywork-shell launcher   (dbus-send under the hood)
+--   keywork-shell lock
 --   keywork-shell volume up
 --   keywork-shell brightness down
 -- Owning the name also makes the shell single-instance. Returns nil plus
@@ -35,6 +36,12 @@ function M.serve(handlers)
   local exported = bus:export(M.path, {
     [M.interface] = {
       methods = {
+        Lock = {
+          in_signature = "",
+          call = function()
+            handlers.lock()
+          end,
+        },
         ToggleLauncher = {
           in_signature = "",
           call = function()

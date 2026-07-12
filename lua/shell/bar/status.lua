@@ -1,21 +1,18 @@
 local kw = require("keywork")
 local dbus = require("keywork.dbus")
 local log = require("keywork.log")
-local loop = require("keywork.loop")
 local service = require("keywork.service")
 local audio = require("shell.audio")
+local clock = require("shell.clock")
 local network = require("shell.bar.network")
 local util = require("shell.bar.util")
 
-local seconds_until_next_minute = util.seconds_until_next_minute
 local label = util.label
 local status_pill = util.status_pill
 
 local UPOWER = "org.freedesktop.UPower"
 local UPOWER_DEVICE = "org.freedesktop.UPower.Device"
 local DISPLAY_DEVICE = "/org/freedesktop/UPower/devices/DisplayDevice"
-
-local TIME_FORMAT = "%a %b %d  %I:%M %p"
 
 local function upower_state_name(state)
   if state == 1 then
@@ -70,14 +67,6 @@ local function battery_status_from_values(palette, percentage, state)
   })
 end
 
-local clock_service = service.define("shell.bar.clock", function(self)
-  self:publish(os.date(TIME_FORMAT))
-  local timer = loop.timer({ delay = seconds_until_next_minute(), interval = 60.0 })
-  for _ in timer:ticks() do
-    self:publish(os.date(TIME_FORMAT))
-  end
-end)
-
 local battery_service = service.define("shell.bar.battery", function(self)
   local ok, bus = pcall(function()
     return dbus.system()
@@ -113,10 +102,11 @@ local StatusItems = kw.stateful({
       self.battery = battery
       self:set_state()
     end)
-    self.time = clock_service:use(self.scope, function(time)
-      self.time = time
+    self.time = clock.use(self.scope, function(timestamp)
+      self.time = clock.format_bar(timestamp)
       self:set_state()
-    end) or os.date(TIME_FORMAT)
+    end)
+    self.time = clock.format_bar(self.time or os.time())
   end,
 
   build = function(self, context)

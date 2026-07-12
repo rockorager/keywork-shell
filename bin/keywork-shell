@@ -1,8 +1,25 @@
 #!/bin/sh
 set -eu
 
-# Subcommands talk to the running shell over the session bus.
+script=lua/init.lua
+
+# Lock is normally started by the shell in its own transient systemd unit;
+# --foreground is the internal entry point run by that unit.
 case "${1-}" in
+lock)
+  shift
+  if [ "${1-}" = "--foreground" ]; then
+    script=lua/lock.lua
+    shift
+  elif dbus-send --session --print-reply --type=method_call \
+      --dest=dev.rockorager.keywork /dev/rockorager/keywork \
+      dev.rockorager.keywork.Lock >/dev/null; then
+    exit 0
+  else
+    exec systemd-run --user --unit=keywork-shell-lock --collect --quiet \
+      --service-type=exec keywork-shell lock --foreground
+  fi
+  ;;
 launcher)
   exec dbus-send --session --print-reply --type=method_call \
     --dest=dev.rockorager.keywork /dev/rockorager/keywork \
@@ -63,6 +80,12 @@ EOF
 esac
 
 app_dir=${KEYWORK_SHELL_DATADIR:-${XDG_DATA_HOME:-$HOME/.local/share}/keywork-shell}
+if [ "${LUA_CPATH+x}" ]; then
+  LUA_CPATH="$app_dir/lua/?.so;$app_dir/lua/?/init.so;$LUA_CPATH"
+else
+  LUA_CPATH="$app_dir/lua/?.so;$app_dir/lua/?/init.so;;"
+fi
+export LUA_CPATH
 
 if [ "${KEYWORK_SHELL_KEYWORK+x}" ]; then
   keywork=$KEYWORK_SHELL_KEYWORK
@@ -72,4 +95,4 @@ else
   keywork=keywork
 fi
 
-exec "$keywork" --script="$app_dir/lua/init.lua" "$@"
+exec "$keywork" --script="$app_dir/$script" "$@"

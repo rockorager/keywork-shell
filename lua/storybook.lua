@@ -2,10 +2,33 @@ local kw = require("keywork")
 local sb = require("keywork.storybook")
 local audio = require("shell.audio")
 local bar_colors = require("shell.bar.colors")
+local lock = require("shell.lock")
 local network = require("shell.bar.network")
 local sway = require("shell.bar.sway")
 local notifications = require("shell.notifications")
 local osd = require("shell.osd")
+
+local function lock_story(id, name, options)
+  options = options or {}
+  return sb.story({
+    id = id,
+    group = "Lock screen",
+    name = name,
+    viewport = options.viewport or { width = 1280, height = 720 },
+    color_scheme = options.color_scheme or "dark",
+    render = function()
+      return lock.View({
+        key = id,
+        username = options.username or "Tim Rock",
+        status = options.status,
+        time = "9:41",
+        date = "Sunday, July 12",
+        autofocus = false,
+        on_submit = function(_) end,
+      })
+    end,
+  })
+end
 
 local function menu_story(id, name, width, render)
   return sb.story({
@@ -172,6 +195,20 @@ end
 return sb.book({
   title = "keywork-shell",
   stories = {
+    lock_story("lock/dark", "Dark"),
+    lock_story("lock/light", "Light", { color_scheme = "light" }),
+    lock_story("lock/authentication-failed", "Authentication failed", {
+      status = "Authentication failed",
+    }),
+    lock_story("lock/empty-password", "Empty password", {
+      status = "Enter your password",
+    }),
+    lock_story("lock/avatar-fallback", "Avatar fallback", {
+      username = "Alex Morgan",
+    }),
+    lock_story("lock/compact-output", "Compact output", {
+      viewport = { width = 640, height = 480 },
+    }),
     audio_menu_story(),
     wifi_menu_story(),
     workspace_story(),
