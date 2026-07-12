@@ -45,8 +45,8 @@ local function entry_icon(entry, size, theme)
   if not name or name == "" then
     name = "application-x-executable"
   end
-  -- Tinted entries prefer a monochrome symbolic icon engine-side, but
-  -- retain the original desktop icon when no symbolic asset exists.
+  -- Tinted entries use the secondary text color; icon lookup still
+  -- prefers the exact desktop icon before its symbolic fallback.
   local color = entry.icon_tint and theme.colors.text_secondary or nil
   return kw.icon({
     name = name,

@@ -14,12 +14,12 @@ Fix these in `../keywork`, then simplify here.
 ## Resolved
 
 - **Icons could not prefer symbolic assets without losing the regular
-  fallback.** App-provided icon names should use a monochrome symbolic variant
-  in shell UI when one exists, while branded apps without one must retain
-  their normal icon. Keywork now prefers symbolic assets whenever `kw.icon` or
-  `kw.icon_theme` supplies a color, with `symbolic = false` as an override and
-  the preference included in icon-cache keys. Launcher, notification, and
-  audio-device icons use the shell's secondary text color.
+  fallback.** Some shell contexts need a monochrome symbolic variant when one
+  exists, while branded apps without one must retain their normal icon.
+  Keywork's `kw.icon` and `kw.icon_theme` now accept an explicit
+  `symbolic = true`, with the preference included in icon-cache keys. Tint and
+  icon selection remain independent: the shell uses its secondary text color
+  without replacing exact regular icons.
 - **D-Bus replies could not carry Unix file descriptors.** A safe logind
   delay inhibitor requires retaining the descriptor returned by `Inhibit`
   until the lock screen is compositor-confirmed. Keywork now decodes `h`
