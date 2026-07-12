@@ -126,7 +126,9 @@ local sway_service = service.define("shell.bar.sway", function(self)
   self:publish(snapshot(client))
 end)
 
-local function workspaces(palette, sway)
+local function WorkspaceSwitcher(props)
+  local palette = props.colors
+  local sway = props.sway
   local items = {}
   for _, workspace in ipairs(sway.workspaces or {}) do
     local name = workspace.name
@@ -160,10 +162,11 @@ local SwayWorkspaces = kw.stateful({
   end,
 
   build = function(self)
-    return workspaces(self.props.colors, self.sway)
+    return WorkspaceSwitcher({ colors = self.props.colors, sway = self.sway })
   end,
 })
 
 return {
+  Switcher = WorkspaceSwitcher,
   Workspaces = SwayWorkspaces,
 }

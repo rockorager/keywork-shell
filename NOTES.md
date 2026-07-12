@@ -13,6 +13,15 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **Lua composition widgets lost ambient component themes.** `kw.theme`
+  retained native colors and control styles but discarded Lua-only component
+  data before stateful chips and menus built. Keywork now carries the original
+  Lua theme through stateful and deferred builders, restoring selected and
+  hover states without per-widget theme props.
+- **Explicit line-height left labels visually high in their boxes.** A
+  Storybook snapshot of the workspace switcher exposed that Keywork put all
+  extra line-height below the baseline. Keywork now splits that leading above
+  and below the natural line box, keeping chip labels vertically centered.
 - **Menus repeated their surface and item styling at every call site.**
   Keywork now provides ambient-theme `kw.menu`, `kw.menu_item`,
   `kw.menu_label`, and `kw.menu_separator` composition widgets. The audio,

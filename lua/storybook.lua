@@ -3,6 +3,7 @@ local sb = require("keywork.storybook")
 local audio = require("shell.audio")
 local bar_colors = require("shell.bar.colors")
 local network = require("shell.bar.network")
+local sway = require("shell.bar.sway")
 local notifications = require("shell.notifications")
 local osd = require("shell.osd")
 
@@ -77,6 +78,45 @@ local function wifi_menu_story()
   end)
 end
 
+local function workspace_story()
+  return sb.story({
+    id = "bar/workspaces",
+    group = "Bar",
+    name = "Workspace switcher",
+    viewport = { width = 220, height = 40, scale = 2 },
+    color_scheme = "dark",
+    render = function(context)
+      local theme = kw.theme_for(context)
+      local palette = bar_colors.palette(theme)
+      return kw.theme({
+        data = palette.theme,
+        child = kw.sized({
+          width = 220,
+          height = 40,
+          child = kw.container({
+            background = palette.background,
+            vertical_align = "center",
+            padding = { x = theme.space[2], y = theme.space[1] },
+            child = sway.Switcher({
+              colors = palette,
+              sway = {
+                connected = true,
+                workspaces = {
+                  { name = "1" },
+                  { name = "2", focused = true },
+                  { name = "3" },
+                  { name = "4", urgent = true },
+                },
+                switch = function(_) end,
+              },
+            }),
+          }),
+        }),
+      })
+    end,
+  })
+end
+
 local function osd_story(id, name, model)
   return sb.story({
     id = id,
@@ -127,6 +167,7 @@ return sb.book({
   stories = {
     audio_menu_story(),
     wifi_menu_story(),
+    workspace_story(),
     osd_story("osd/volume", "Volume", {
       key = "volume",
       kind = "volume",
