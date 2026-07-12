@@ -53,6 +53,13 @@ function M.serve(handlers)
             assert(handlers.adjust_brightness(action), "invalid brightness OSD action")
           end,
         },
+        ConfigureBackground = {
+          in_signature = "s",
+          call = function(_, payload)
+            local ok, err = handlers.configure_background(payload)
+            assert(ok, err)
+          end,
+        },
       },
     },
   })

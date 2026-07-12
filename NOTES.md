@@ -13,6 +13,14 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **Background surfaces lacked image files, full-output sizing, and input
+  passthrough.** Keywork's image widget only accepted decoded ARGB pixels,
+  managed layer windows only delegated width (not height) to their anchors,
+  and every surface used the default full input region. Keywork now supports
+  path-backed `kw.image` sources with object-fit modes, compositor-sized `0x0`
+  layer surfaces, and `layer_shell.pointer = "none"` for an empty input region.
+  Frame-scoped image rasters let static full-surface images release decoded
+  pixels after presentation instead of duplicating the retained Wayland frame.
 - **Lua composition widgets lost ambient component themes.** `kw.theme`
   retained native colors and control styles but discarded Lua-only component
   data before stateful chips and menus built. Keywork now carries the original

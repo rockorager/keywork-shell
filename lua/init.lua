@@ -1,5 +1,6 @@
 local kw = require("keywork")
 
+local background = require("background")
 local bar = require("shell.bar")
 local ipc = require("shell.ipc")
 local launcher = require("shell.launcher")
@@ -37,6 +38,12 @@ local ipc_handle, ipc_err = ipc.serve({
   adjust_brightness = function(action)
     return osd_controller:adjust_brightness(action)
   end,
+  configure_background = function(payload)
+    local ok, err = background.configure(payload)
+    if not ok then return false, err end
+    kw.app.invalidate()
+    return true
+  end,
 })
 if not ipc_handle and ipc_err == "name-taken" then
   io.stderr:write("keywork-shell: another instance already owns " .. ipc.name .. "\n")
@@ -52,6 +59,7 @@ return kw.app({
   backend = "cpu",
   windows = function(ctx)
     local windows = {}
+    background.append_windows(windows, ctx.outputs)
     for index, output in ipairs(ctx.outputs) do
       windows[#windows + 1] = kw.window({
         id = "bar:" .. output.name,
