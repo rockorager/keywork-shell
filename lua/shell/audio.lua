@@ -77,9 +77,9 @@ function M.set_default(device)
   return monitor:set_default(device.kind, device.name)
 end
 
-local function menu_label(value, palette, color)
+local function menu_label(value, color)
   return kw.label(value, {
-    color = color or palette.foreground,
+    color = color,
     max_lines = 1,
   })
 end
@@ -102,7 +102,7 @@ local function volume_status(palette, device, on_tap)
   if not device or device.muted or (device.volume or 0) <= 0 then
     color = palette.muted
   end
-  return status_pill(palette, "volume", volume_icon("volume", device), nil, color, {
+  return status_pill("volume", volume_icon("volume", device), nil, color, {
     on_tap = on_tap,
   })
 end
@@ -139,7 +139,7 @@ local function device_rows(palette, kind, devices, on_select)
   local rows = {}
   for _, device in ipairs(devices) do
     if device.available ~= false then
-      local color = device.default and palette.foreground or palette.muted
+      local color = not device.default and palette.muted or nil
       rows[#rows + 1] = kw.menu_item({
         id = "audio-" .. kind .. "-" .. tostring(device.id),
         on_tap = function() on_select(device) end,
@@ -149,14 +149,11 @@ local function device_rows(palette, kind, devices, on_select)
           children = {
             kw.icon({
               name = device_icon(kind, device),
-              size = 16,
               color = palette.muted,
             }),
-            kw.expanded(menu_label(device_label(kind, device), palette, color)),
+            kw.expanded(menu_label(device_label(kind, device), color)),
             device.default and kw.icon({
               name = "object-select",
-              size = 16,
-              color = palette.foreground,
             }) or kw.sized({ width = 16 }, kw.text("")),
           },
         }),
@@ -167,7 +164,7 @@ local function device_rows(palette, kind, devices, on_select)
     rows[1] = kw.padding({
       x = palette.space[3],
       y = palette.space[2],
-      child = menu_label("No available devices", palette, palette.subtle),
+      child = menu_label("No available devices", palette.subtle),
     })
   end
   return rows

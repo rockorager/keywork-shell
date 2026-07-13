@@ -138,7 +138,6 @@ local function WorkspaceSwitcher(props)
       label = name,
       selected = selected,
       align = "center",
-      padding = { x = palette.space[3] },
       on_tap_down = function()
         if sway.switch then
           sway.switch(name)
@@ -148,7 +147,7 @@ local function WorkspaceSwitcher(props)
   end
 
   if #items == 0 then
-    table.insert(items, label(sway.connected and "loading sway" or "no sway", palette, palette.muted))
+    table.insert(items, label(sway.connected and "loading sway" or "no sway", palette.muted))
   end
   return kw.row({ spacing = palette.space[1], children = items })
 end

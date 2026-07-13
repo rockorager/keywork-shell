@@ -139,11 +139,13 @@ local function search_field(self, theme)
       spacing = theme.space[2],
       align = "center",
       children = {
-        kw.icon({ name = "system-search", size = 18, color = theme.colors.text_tertiary }),
+        kw.icon({ name = "system-search", color = theme.colors.text_tertiary }),
         kw.expanded(kw.text_input({
           id = "query",
           placeholder = "Search apps…",
           autofocus = true,
+          variant = "plain",
+          padding_y = theme.components.input.padding_y,
           on_change = function(text)
             set_query(self, text)
           end,
@@ -153,9 +155,8 @@ local function search_field(self, theme)
   )
 end
 
-local function divider(theme)
-  return kw.container({ background = theme.colors.border, min_height = 1 },
-    kw.sized({ height = 1 }, kw.text("")))
+local function divider()
+  return kw.separator({})
 end
 
 local function result_row(self, index, entry, theme)
@@ -178,16 +179,16 @@ local function result_row(self, index, entry, theme)
       run_action(self, entry, entry.actions[1])
     end,
     child = kw.container({
-      background = selected and theme.colors.fill or nil,
-      radius = theme.radius[4],
+      background = selected and theme.components.menu.item.selected_background or nil,
+      radius = theme.components.menu.item.radius,
       min_height = row_height,
       vertical_align = "center",
-      padding = { x = theme.space[3] },
+      padding = { x = theme.components.menu.item.padding_x },
     }, kw.row({
       spacing = theme.space[3],
       align = "center",
       children = {
-        entry_icon(entry, 24, theme),
+        entry_icon(entry, theme.space[5], theme),
         kw.text(entry.title),
         kw.spacer(),
         kw.label(entry.subtitle or "", { color = theme.colors.text_tertiary }),
@@ -306,39 +307,22 @@ local Launcher = kw.stateful({
   end,
 
   build = function(self, context)
-    local theme = kw.resolve_theme(kw.theme_data({
-      components = {
-        input = {
-          -- The search field is chromeless: the surrounding container
-          -- provides the visual frame, so the input keeps only its
-          -- vertical rhythm (space-2).
-          background = 0x00000000,
-          border = 0x00000000,
-          focused_border = 0x00000000,
-          padding_x = 0,
-          padding_y = 8,
-        },
-      },
-    }), context)
+    local theme = context.theme
 
     local content = kw.column({
       align = "stretch",
       children = {
         search_field(self, theme),
-        divider(theme),
+        divider(),
         -- Expanded so the list's viewport is the remaining window
         -- height; the visible row count derives from it.
-        -- 6px inset from keywork-launcher's design; the space scale
-        -- (4, 8, 12, ...) has no matching step.
-        kw.expanded(kw.container({ padding = { x = 6, y = 6 } }, result_list(self, theme))),
-        divider(theme),
+        kw.expanded(kw.container({ padding = theme.space[2] }, result_list(self, theme))),
+        divider(),
         footer(self, theme),
       },
     })
 
-    return kw.theme({
-      data = theme,
-      child = kw.actions({
+    return kw.actions({
         bindings = {
           activate = function()
             activate(self)
@@ -368,11 +352,10 @@ local Launcher = kw.stateful({
             background = theme.colors.surface,
             border = theme.colors.border,
             border_width = 1,
-            radius = theme.radius[5],
+            radius = theme.radius[4],
           }, content),
         }),
-      }),
-    })
+      })
   end,
 })
 

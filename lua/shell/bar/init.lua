@@ -53,8 +53,7 @@ local Bar = kw.stateful({
               children = children,
             })
           )),
-          -- Hairline against the windows below, like the launcher dividers.
-          kw.container({ background = palette.border, min_height = 1 }, kw.sized({ height = 1 }, kw.text(""))),
+          kw.separator({}),
         },
       }),
     })

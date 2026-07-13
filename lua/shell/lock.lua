@@ -41,13 +41,13 @@ M.View = kw.stateful({
       children = {
         kw.text(date, {
           color = theme.colors.text_secondary,
-          font_size = 18,
+          font_size = theme.font_size[4],
+          line_height = theme.line_height[4],
           role = "label",
         }),
         kw.text(time, {
-          color = theme.colors.text,
-          font_size = 64,
-          line_height = 72,
+          font_size = theme.font_size[9],
+          line_height = theme.line_height[9],
         }),
       },
     })
@@ -58,7 +58,7 @@ M.View = kw.stateful({
         background = theme.colors.surface,
         border = theme.colors.border,
         border_width = 1,
-        radius = theme.radius[5],
+        radius = theme.radius[4],
         padding = theme.space[5],
         child = kw.column({
           align = "stretch",
@@ -66,7 +66,6 @@ M.View = kw.stateful({
           children = {
             kw.center(avatar(theme, self.props.avatar_path)),
             kw.center(kw.text(self.props.username or "User", {
-              color = theme.colors.text,
               role = "title",
             })),
             kw.text_input({
@@ -86,9 +85,7 @@ M.View = kw.stateful({
       }),
     })
 
-    return kw.theme({
-      data = theme,
-      child = kw.box({ background = theme.colors.background }, kw.center(kw.column({
+    return kw.box({ background = theme.colors.background }, kw.center(kw.column({
         align = "center",
         children = {
           kw.expanded(kw.column({
@@ -102,8 +99,7 @@ M.View = kw.stateful({
           card,
           kw.expanded(kw.spacer()),
         },
-      }))),
-    })
+      })))
   end,
 })
 

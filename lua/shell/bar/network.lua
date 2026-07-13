@@ -50,7 +50,7 @@ local function pill_from_values(palette, operstate, essid, percent, on_tap)
     color = palette.accent
     name = wifi_signal_icon(percent)
   end
-  return status_pill(palette, "network", name, nil, color, { on_tap = on_tap })
+  return status_pill("network", name, nil, color, { on_tap = on_tap })
 end
 
 local function wifi_menu(palette, wifi, on_select)
@@ -58,27 +58,27 @@ local function wifi_menu(palette, wifi, on_select)
   on_select = on_select or function(_) end
   local rows = {}
 
-  local header_children = { label("Wi-Fi", palette, palette.muted), kw.spacer() }
+  local header_children = { label("Wi-Fi", palette.muted), kw.spacer() }
   if wifi.status then
-    table.insert(header_children, label(wifi.status, palette, palette.subtle))
+    table.insert(header_children, label(wifi.status, palette.subtle))
   elseif wifi.scanning then
-    table.insert(header_children, label("Scanning…", palette, palette.subtle))
+    table.insert(header_children, label("Scanning…", palette.subtle))
   end
   table.insert(rows, kw.menu_label({
     child = kw.row({ align = "center", children = header_children }),
   }))
 
   for _, entry in ipairs(wifi.networks or {}) do
-    local color = entry.connected and palette.foreground or palette.muted
+    local color = not entry.connected and palette.muted or nil
     local children = {
-      kw.icon({ name = wifi_signal_icon(entry.percent), size = 16, color = color }),
-      kw.expanded(label(entry.name, palette, color)),
+      kw.icon({ name = wifi_signal_icon(entry.percent), color = color }),
+      kw.expanded(label(entry.name, color)),
     }
     if entry.secured and not entry.known then
-      table.insert(children, kw.icon({ name = "network-wireless-encrypted", size = 14, color = palette.subtle }))
+      table.insert(children, kw.icon({ name = "network-wireless-encrypted", color = palette.subtle }))
     end
     if entry.connected then
-      table.insert(children, kw.icon({ name = "object-select", size = 16, color = palette.foreground }))
+      table.insert(children, kw.icon({ name = "object-select" }))
     end
     table.insert(rows, kw.menu_item({
       id = "wifi-" .. entry.path,
@@ -95,7 +95,7 @@ local function wifi_menu(palette, wifi, on_select)
     table.insert(rows, kw.padding({
       x = palette.space[3],
       y = palette.space[2],
-      child = label(wifi.networks and "No networks found" or "Loading…", palette, palette.subtle),
+      child = label(wifi.networks and "No networks found" or "Loading…", palette.subtle),
     }))
   end
 

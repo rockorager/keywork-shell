@@ -57,19 +57,17 @@ local Level = kw.stateful({
     local value = clamp(tonumber(self.props.value) or 0, 0, 1)
     local muted = self.props.muted == true
 
-    return kw.theme({
-      data = theme,
-      child = kw.container({
+    return kw.container({
         min_width = M.width,
         min_height = M.height,
-        padding = { all = 4 },
+        padding = { all = theme.space[1] },
       }, kw.container({
         background = theme.colors.surface,
         border = theme.colors.border,
         border_width = 1,
         radius = theme.radius[6],
-        min_width = M.width - 8,
-        min_height = M.height - 8,
+        min_width = M.width - 2 * theme.space[1],
+        min_height = M.height - 2 * theme.space[1],
         padding = { x = theme.space[3] },
         vertical_align = "center",
       }, kw.row({
@@ -83,8 +81,7 @@ local Level = kw.stateful({
           }),
           level_bar(theme, value, muted),
         },
-      }))),
-    })
+      })))
   end,
 })
 

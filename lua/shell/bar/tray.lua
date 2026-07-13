@@ -295,13 +295,10 @@ local TrayItems = kw.stateful({
       local icon = pixmap and kw.image({
         width = pixmap.width,
         height = pixmap.height,
-        size = 16,
+        size = palette.space[4],
         format = "argb32",
         pixels = pixmap.pixels,
-      }) or kw.icon_theme({
-        size = 16,
-        child = kw.icon_label(icon_name, nil, { size = 16 }),
-      })
+      }) or kw.icon({ name = icon_name })
       table.insert(items, kw.chip({
         id = "tray-" .. item.id,
         child = icon,

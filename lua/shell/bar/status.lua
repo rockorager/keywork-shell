@@ -31,7 +31,7 @@ end
 
 local function battery_status_from_values(palette, percentage, state)
   if not percentage then
-    return status_pill(palette, "battery", "battery-level-0", "", palette.muted)
+    return status_pill("battery", "battery-level-0", "", palette.muted)
   end
   local capacity = math.max(0, math.min(100, math.floor(percentage + 0.5)))
   local status = upower_state_name(state)
@@ -62,9 +62,7 @@ local function battery_status_from_values(palette, percentage, state)
       color = palette.warning
     end
   end
-  return status_pill(palette, "battery", name, tostring(capacity) .. "%", color, {
-    label_font_size = palette.font_size[1],
-  })
+  return status_pill("battery", name, tostring(capacity) .. "%", color)
 end
 
 local battery_service = service.define("shell.bar.battery", function(self)
@@ -119,7 +117,7 @@ local StatusItems = kw.stateful({
         audio.Audio({ key = "audio", colors = palette }),
         network.Network({ key = "network", colors = palette }),
         battery_status_from_values(palette, battery.percentage, battery.state),
-        label(self.time, palette),
+        label(self.time),
       },
     })
   end,
