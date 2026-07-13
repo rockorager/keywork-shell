@@ -302,7 +302,6 @@ local TrayItems = kw.stateful({
       table.insert(items, kw.chip({
         id = "tray-" .. item.id,
         child = icon,
-        align = "center",
         on_tap = function()
           self.host:activate(item)
         end,

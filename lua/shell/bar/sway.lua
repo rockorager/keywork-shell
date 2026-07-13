@@ -137,7 +137,6 @@ local function WorkspaceSwitcher(props)
       id = "workspace-" .. name,
       label = name,
       selected = selected,
-      align = "center",
       on_tap_down = function()
         if sway.switch then
           sway.switch(name)

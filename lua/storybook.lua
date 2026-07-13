@@ -2,6 +2,7 @@ local kw = require("keywork")
 local sb = require("keywork.storybook")
 local audio = require("shell.audio")
 local bar_colors = require("shell.bar.colors")
+local bar_util = require("shell.bar.util")
 local lock = require("shell.lock")
 local network = require("shell.bar.network")
 local sway = require("shell.bar.sway")
@@ -147,6 +148,41 @@ local function workspace_story()
   })
 end
 
+local function status_pills_story()
+  return sb.story({
+    id = "bar/status-pills",
+    group = "Bar",
+    name = "Status pills",
+    viewport = { width = 180, height = 40, scale = 2 },
+    color_scheme = "dark",
+    render = function(context)
+      local theme = kw.theme_for(context)
+      local palette = bar_colors.palette(theme)
+      return kw.theme({
+        data = palette.theme,
+        child = kw.sized({
+          width = 180,
+          height = 40,
+          child = kw.container({
+            background = palette.background,
+            vertical_align = "center",
+            padding = { x = theme.space[2], y = theme.space[1] },
+            child = kw.row({
+              spacing = theme.space[2],
+              align = "center",
+              children = {
+                bar_util.status_pill("volume", "audio-volume-high", nil, palette.accent),
+                bar_util.status_pill("network", "network-wireless-signal-good", nil, palette.accent),
+                bar_util.status_pill("battery", "battery-level-80", "82%", palette.success),
+              },
+            }),
+          }),
+        }),
+      })
+    end,
+  })
+end
+
 local function osd_story(id, name, model)
   return sb.story({
     id = id,
@@ -212,6 +248,7 @@ return sb.book({
     audio_menu_story(),
     wifi_menu_story(),
     workspace_story(),
+    status_pills_story(),
     osd_story("osd/volume", "Volume", {
       key = "volume",
       kind = "volume",
