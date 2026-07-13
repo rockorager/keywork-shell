@@ -58,6 +58,12 @@ Fix these in `../keywork`, then simplify here.
   writes matching device routes (with node-property fallback for virtual
   devices), and updates configured-default metadata. The bar and OSD no longer
   spawn `wpctl` or `pactl`.
+- **Bluetooth hotplug could leave volume keys controlling a stale node.** A
+  long-lived monitor could retain a false `device.routes` hint after AirPods
+  connected, so successful volume writes changed only node properties while
+  WirePlumber kept the headphones' route volume unchanged. Keywork now chooses
+  a matching route from its actual volume/mute properties and observes that
+  route as the source of truth, matching WirePlumber's mixer behavior.
 - **`require` needed a LUA_PATH bootstrap.** Both `bin/keywork-shell` and
   `make run` exported `LUA_PATH` so `require("shell.*")` could resolve.
   Fixed in keywork: the script's directory is prepended to `package.path`
