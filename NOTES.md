@@ -13,6 +13,12 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **Managed top-level windows could not reflect compositor closes into app
+  state.** Dropping a declaration destroyed a window, but closing an
+  `xdg_toplevel` had no callback to clear the state that declared it, so the
+  audio settings window could not be reopened. Keywork now supports
+  `kw.window({ on_close = ... })` and dispatches it before reconciling the
+  closed surface.
 - **Icons could not prefer symbolic assets without losing the regular
   fallback.** Some shell contexts need a monochrome symbolic variant when one
   exists, while branded apps without one must retain their normal icon.

@@ -1,6 +1,7 @@
 local kw = require("keywork")
 
 local background = require("background")
+local audio = require("shell.audio")
 local bar = require("shell.bar")
 local idle = require("shell.idle")
 local ipc = require("shell.ipc")
@@ -13,8 +14,17 @@ local session = require("shell.session")
 -- windows exist lives here and flips via kw.app.invalidate(); widget
 -- state (kw.stateful) is per-window runtime.
 local shell = {
+	audio_settings_open = false,
 	launcher_open = false,
 }
+
+local function set_audio_settings_open(open)
+	if shell.audio_settings_open == open then
+		return
+	end
+	shell.audio_settings_open = open
+	kw.app.invalidate()
+end
 
 local function set_launcher_open(open)
 	if shell.launcher_open == open then
@@ -94,6 +104,27 @@ return kw.app({
 				child = bar.Bar({
 					key = "bar",
 					show_tray = index == 1,
+					on_open_audio_settings = function()
+						set_audio_settings_open(true)
+					end,
+				}),
+			})
+		end
+
+		if shell.audio_settings_open then
+			windows[#windows + 1] = kw.window({
+				id = "audio-settings",
+				title = "Audio Settings",
+				width = audio.settings_width,
+				height = audio.settings_height,
+				on_close = function()
+					set_audio_settings_open(false)
+				end,
+				child = audio.Settings({
+					key = "audio-settings",
+					on_close = function()
+						set_audio_settings_open(false)
+					end,
 				}),
 			})
 		end

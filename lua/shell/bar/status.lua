@@ -114,7 +114,11 @@ local StatusItems = kw.stateful({
       spacing = palette.space[2],
       align = "center",
       children = {
-        audio.Audio({ key = "audio", colors = palette }),
+        audio.Audio({
+          key = "audio",
+          colors = palette,
+          on_open_settings = self.props.on_open_audio_settings,
+        }),
         network.Network({ key = "network", colors = palette }),
         battery_status_from_values(palette, battery.percentage, battery.state),
         label(self.time),

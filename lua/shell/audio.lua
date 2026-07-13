@@ -2,11 +2,15 @@ local kw = require("keywork")
 local keywork_audio = require("keywork.audio")
 local log = require("keywork.log")
 local service = require("keywork.service")
+local bar_colors = require("shell.bar.colors")
 local util = require("shell.bar.util")
 
 local status_pill = util.status_pill
 
 local M = {}
+
+M.settings_width = 520
+M.settings_height = 540
 
 local active_monitor = nil
 
@@ -119,7 +123,7 @@ local function device_icon(kind, device)
   return name
 end
 
-local function device_label(kind, device)
+local function device_label(kind, device, detailed)
   local internal = device.bus == "pci" or device.bus == "platform"
   local nick = device.nick
   if internal then
@@ -129,49 +133,99 @@ local function device_label(kind, device)
       return "Built-in Microphone"
     end
   end
+  if detailed and device.description and device.description ~= "" then
+    if nick and nick ~= "" and device.description:sub(1, #nick + 1) == nick .. " " then
+      return nick .. " · " .. device.description:sub(#nick + 2)
+    end
+    return device.description
+  end
   if nick and nick ~= "" then
     return nick
   end
   return device.description or device.name
 end
 
+local function device_row(palette, kind, device, on_select)
+  local color = not device.default and palette.muted or nil
+  return kw.menu_item({
+    id = "audio-" .. kind .. "-" .. tostring(device.id),
+    on_tap = on_select and function() on_select(device) end or nil,
+    child = kw.row({
+      spacing = palette.space[2],
+      align = "center",
+      children = {
+        kw.icon({
+          name = device_icon(kind, device),
+          color = palette.muted,
+        }),
+        kw.expanded(menu_label(device_label(kind, device, true), color)),
+        device.default and kw.icon({
+          name = "object-select",
+          color = palette.foreground,
+        }) or kw.sized({ width = 16 }, kw.text("")),
+      },
+    }),
+  })
+end
+
+local function unavailable_row(palette, label)
+  return kw.padding({
+    x = palette.space[3],
+    y = palette.space[2],
+    child = menu_label(label, palette.subtle),
+  })
+end
+
 local function device_rows(palette, kind, devices, on_select)
   local rows = {}
   for _, device in ipairs(devices) do
     if device.available ~= false then
-      local color = not device.default and palette.muted or nil
-      rows[#rows + 1] = kw.menu_item({
-        id = "audio-" .. kind .. "-" .. tostring(device.id),
-        on_tap = function() on_select(device) end,
-        child = kw.row({
-          spacing = palette.space[2],
-          align = "center",
-          children = {
-            kw.icon({
-              name = device_icon(kind, device),
-              color = palette.muted,
-            }),
-            kw.expanded(menu_label(device_label(kind, device), color)),
-            device.default and kw.icon({
-              name = "object-select",
-              color = palette.foreground,
-            }) or kw.sized({ width = 16 }, kw.text("")),
-          },
-        }),
-      })
+      rows[#rows + 1] = device_row(palette, kind, device, on_select)
     end
   end
   if #rows == 0 then
-    rows[1] = kw.padding({
-      x = palette.space[3],
-      y = palette.space[2],
-      child = menu_label("No available devices", palette.subtle),
-    })
+    rows[1] = unavailable_row(palette, "No available devices")
   end
   return rows
 end
 
-local function audio_menu(palette, audio, on_select)
+local function default_device_row(palette, kind, device)
+  if not device then
+    local label = kind == "sink" and "No default output" or "No default input"
+    return unavailable_row(palette, label)
+  end
+  return device_row(palette, kind, device)
+end
+
+local function audio_menu(palette, audio, on_open_settings)
+  audio = audio or {}
+  return kw.menu({
+    child = kw.column({
+      children = {
+        kw.menu_label({ text = "Output" }),
+        default_device_row(palette, "sink", audio.output),
+        kw.menu_label({ text = "Input" }),
+        default_device_row(palette, "source", audio.input),
+        kw.menu_separator({}),
+        kw.menu_item({
+          id = "audio-settings",
+          on_tap = on_open_settings,
+          child = kw.row({
+            spacing = palette.space[2],
+            align = "center",
+            children = {
+              kw.icon({ name = "preferences-system-symbolic", color = palette.muted }),
+              kw.expanded(menu_label("Advanced audio settings…", palette.muted)),
+              kw.icon({ name = "pan-end-symbolic", color = palette.muted }),
+            },
+          }),
+        }),
+      },
+    }),
+  })
+end
+
+local function settings_menu(palette, audio, on_select)
   audio = audio or { outputs = {}, inputs = {} }
   on_select = on_select or function(_) end
   local rows = { kw.menu_label({ text = "Output" }) }
@@ -189,7 +243,7 @@ end
 
 local AudioMenu = kw.stateful({
   build = function(self)
-    return audio_menu(self.props.colors, self.props.audio, self.props.on_select)
+    return audio_menu(self.props.colors, self.props.audio, self.props.on_open_settings)
   end,
 })
 
@@ -206,9 +260,9 @@ local Audio = kw.stateful({
     end)
   end,
 
-  select_device = function(self, device)
-    local ok, err = M.set_default(device)
-    if not ok then log.warn("audio default selection failed", err or "unknown") end
+  open_settings = function(self)
+    self:set_state(function(state) state.menu_open = false end)
+    if self.props.on_open_settings then self.props.on_open_settings() end
   end,
 
   build = function(self)
@@ -223,9 +277,7 @@ local Audio = kw.stateful({
         gap = palette.space[1],
         width = 420,
         content = function()
-          return audio_menu(palette, self.audio, function(device)
-            self:select_device(device)
-          end)
+          return audio_menu(palette, self.audio, function() self:open_settings() end)
         end,
         on_close = function()
           self:set_state(function(state) state.menu_open = false end)
@@ -236,7 +288,92 @@ local Audio = kw.stateful({
   end,
 })
 
+local Settings = kw.stateful({
+  init = function(self)
+    if not self.props.audio then
+      self.audio = M.use(self.scope, function(snapshot)
+        self.audio = snapshot
+        self:set_state()
+      end)
+    end
+  end,
+
+  select_device = function(self, device)
+    if self.props.on_select then
+      self.props.on_select(device)
+      return
+    end
+    local ok, err = M.set_default(device)
+    if not ok then log.warn("audio default selection failed", err or "unknown") end
+  end,
+
+  build = function(self, context)
+    local theme = context.theme
+    local palette = self.props.colors or bar_colors.palette(theme)
+    local audio = self.props.audio or self.audio or {}
+    local content = kw.sized({
+      width = M.settings_width,
+      height = M.settings_height,
+      child = kw.container({
+        background = palette.background,
+        border = palette.border,
+        border_width = 1,
+        radius = theme.radius[3],
+        padding = { all = palette.space[4] },
+        child = kw.column({
+          spacing = palette.space[4],
+          children = {
+            kw.row({
+              spacing = palette.space[3],
+              align = "center",
+              children = {
+                kw.icon({
+                  name = "audio-card-symbolic",
+                  color = palette.foreground,
+                  size = theme.font_size[5],
+                }),
+                kw.expanded(kw.column({
+                  spacing = palette.space[1],
+                  children = {
+                    kw.label("Audio settings", { role = "title", max_lines = 1 }),
+                    kw.label("Choose the default routes used by new applications.", {
+                      color = palette.muted,
+                      max_lines = 1,
+                    }),
+                  },
+                })),
+              },
+            }),
+            kw.expanded(kw.scroll({
+              id = "audio-settings-routes",
+              child = settings_menu(palette, audio, function(device)
+                self:select_device(device)
+              end),
+            })),
+          },
+        }),
+      }),
+    })
+
+    return kw.theme({
+      data = palette.theme,
+      child = kw.actions({
+        bindings = {
+          dismiss = function()
+            if self.props.on_close then self.props.on_close() end
+          end,
+        },
+        child = kw.shortcuts({
+          bindings = { escape = "dismiss" },
+          child = content,
+        }),
+      }),
+    })
+  end,
+})
+
 M.Audio = Audio
 M.Menu = AudioMenu
+M.Settings = Settings
 
 return M

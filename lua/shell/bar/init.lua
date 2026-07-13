@@ -35,7 +35,11 @@ local Bar = kw.stateful({
     if self.props.show_tray then
       children[#children + 1] = tray.Items({ key = "tray", colors = palette })
     end
-    children[#children + 1] = status.Items({ key = "status", colors = palette })
+    children[#children + 1] = status.Items({
+      key = "status",
+      colors = palette,
+      on_open_audio_settings = self.props.on_open_audio_settings,
+    })
 
     return kw.theme({
       data = palette.theme,

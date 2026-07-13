@@ -49,48 +49,99 @@ local function menu_story(id, name, width, render)
   })
 end
 
-local function audio_menu_story()
-  return menu_story("menus/audio", "Audio devices", 420, function(palette)
+local function audio_story_data()
+  local function vocaster(id, kind, route, default)
+    return {
+      id = id,
+      kind = kind,
+      name = "vocaster-" .. kind .. "-" .. tostring(id),
+      description = "Vocaster One USB " .. route,
+      nick = "Vocaster One USB",
+      icon_name = kind == "sink" and "audio-speakers" or "audio-input-microphone",
+      available = true,
+      default = default,
+      bus = "usb",
+    }
+  end
+
+  local playback = vocaster(2, "sink", "Playback", true)
+  local host_mic = vocaster(6, "source", "Host Mic", true)
+  return {
+    output = playback,
+    input = host_mic,
+    outputs = {
+      {
+        id = 1,
+        kind = "sink",
+        name = "built-in-speakers",
+        description = "Core Ultra 200V Series Processors HD Audio Speaker",
+        nick = "Speaker",
+        icon_name = "audio-card-analog",
+        available = true,
+        port_type = "speaker",
+        bus = "pci",
+      },
+      playback,
+      vocaster(3, "sink", "Video Call"),
+    },
+    inputs = {
+      {
+        id = 4,
+        kind = "source",
+        name = "brio-webcam",
+        description = "BRIO Ultra HD Webcam Analog Stereo",
+        nick = "BRIO Ultra HD Webcam",
+        icon_name = "camera-web-symbolic",
+        available = true,
+        bus = "usb",
+      },
+      {
+        id = 5,
+        kind = "source",
+        name = "built-in-microphone",
+        description = "Core Ultra 200V Series Processors HD Audio Microphone",
+        nick = "Microphone",
+        icon_name = "audio-card-analog",
+        available = true,
+        port_type = "mic",
+        bus = "pci",
+      },
+      host_mic,
+      vocaster(7, "source", "Show Mix"),
+      vocaster(8, "source", "Video Call"),
+      vocaster(9, "source", "Aux"),
+      vocaster(10, "source", "Loopback 1"),
+      vocaster(11, "source", "Loopback 2"),
+    },
+  }
+end
+
+local function defaults_audio_story()
+  return menu_story("menus/audio-defaults", "Audio — defaults only", 420, function(palette)
     return audio.Menu({
       colors = palette,
-      audio = {
-        outputs = {
-          {
-            id = 1,
-            name = "alsa_output.pci-0000_00_1f.3.analog-stereo",
-            description = "Core Ultra 200V Series Processors HD Audio Speaker",
-            nick = "Speaker",
-            icon_name = "audio-card-analog",
-            available = true,
-            default = true,
-            port_type = "speaker",
-            bus = "pci",
-          },
-          {
-            id = 2,
-            name = "bluez_output.14_7A_E4_D0_1F_07.1",
-            description = "Tim’s AirPods",
-            icon_name = "audio-headphones",
-            available = true,
-            bus = "bluetooth",
-          },
-        },
-        inputs = {
-          {
-            id = 3,
-            name = "alsa_input.pci-0000_00_1f.3.analog-stereo",
-            description = "Core Ultra 200V Series Processors HD Audio Microphone",
-            nick = "Microphone",
-            icon_name = "audio-card-analog",
-            available = true,
-            default = true,
-            port_type = "mic",
-            bus = "pci",
-          },
-        },
-      },
+      audio = audio_story_data(),
+      on_open_settings = function() end,
     })
   end)
+end
+
+local function audio_settings_window_story()
+  return sb.story({
+    id = "windows/audio-settings",
+    group = "Windows",
+    name = "Audio settings",
+    viewport = { width = audio.settings_width, height = audio.settings_height, scale = 2 },
+    color_scheme = "dark",
+    render = function(context)
+      return audio.Settings({
+        colors = bar_colors.palette(kw.theme_for(context)),
+        audio = audio_story_data(),
+        on_select = function(_) end,
+        on_close = function() end,
+      })
+    end,
+  })
 end
 
 local function wifi_menu_story()
@@ -245,7 +296,8 @@ return sb.book({
     lock_story("lock/compact-output", "Compact output", {
       viewport = { width = 640, height = 480 },
     }),
-    audio_menu_story(),
+    defaults_audio_story(),
+    audio_settings_window_story(),
     wifi_menu_story(),
     workspace_story(),
     status_pills_story(),
