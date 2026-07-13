@@ -217,6 +217,7 @@ local Audio = kw.stateful({
     return kw.anchored({
       id = "audio",
       popup = self.menu_open and kw.popup({
+        shadow = palette.theme.components.menu.shadow,
         edge = "bottom",
         alignment = "end",
         gap = palette.space[1],

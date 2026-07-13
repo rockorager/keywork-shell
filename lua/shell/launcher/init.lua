@@ -271,6 +271,7 @@ local function footer(self, theme)
         kw.anchored({
           id = "actions-anchor",
           popup = (self.actions_open and entry) and kw.popup({
+            shadow = theme.components.menu.shadow,
             edge = "top",
             alignment = "end",
             gap = theme.space[2],
