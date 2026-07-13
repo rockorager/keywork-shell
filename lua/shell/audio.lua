@@ -154,6 +154,7 @@ local function device_rows(palette, kind, devices, on_select)
             kw.expanded(menu_label(device_label(kind, device), color)),
             device.default and kw.icon({
               name = "object-select",
+              color = palette.foreground,
             }) or kw.sized({ width = 16 }, kw.text("")),
           },
         }),

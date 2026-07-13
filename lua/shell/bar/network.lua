@@ -69,16 +69,17 @@ local function wifi_menu(palette, wifi, on_select)
   }))
 
   for _, entry in ipairs(wifi.networks or {}) do
-    local color = not entry.connected and palette.muted or nil
+    local icon_color = entry.connected and palette.selection or palette.muted
+    local text_color = entry.connected and palette.foreground or palette.muted
     local children = {
-      kw.icon({ name = wifi_signal_icon(entry.percent), color = color }),
-      kw.expanded(label(entry.name, color)),
+      kw.icon({ name = wifi_signal_icon(entry.percent), color = icon_color }),
+      kw.expanded(label(entry.name, text_color)),
     }
     if entry.secured and not entry.known then
       table.insert(children, kw.icon({ name = "network-wireless-encrypted", color = palette.subtle }))
     end
     if entry.connected then
-      table.insert(children, kw.icon({ name = "object-select" }))
+      table.insert(children, kw.icon({ name = "object-select", color = palette.foreground }))
     end
     table.insert(rows, kw.menu_item({
       id = "wifi-" .. entry.path,

@@ -9,6 +9,7 @@ local function palette(theme)
   local result = {
     background = scheme.surface,
     border = scheme.border,
+    foreground = scheme.text,
     muted = scheme.text_secondary,
     subtle = scheme.text_tertiary,
     hover = scheme.fill_secondary,
@@ -21,18 +22,27 @@ local function palette(theme)
     warning = scheme.warning,
     danger = scheme.danger,
     accent = scheme.text,
+    selection = scheme.accent,
 
     space = theme.space,
   }
 
-  -- Keep the Radix chip metrics from the ambient theme and only make the
-  -- bar's status chips neutral instead of accent-colored.
+  -- The bar uses Radix Badge size-3 metrics for primary status controls,
+  -- while keeping their colors neutral instead of accent-colored.
   local bar_theme = {}
   for key, value in pairs(theme) do bar_theme[key] = value end
   bar_theme.components = {}
   for key, value in pairs(theme.components or {}) do bar_theme.components[key] = value end
   local chip = {}
   for key, value in pairs(theme.components.chip or {}) do chip[key] = value end
+  chip.padding_x = theme.space[2] * 1.25
+  chip.padding_y = theme.space[1]
+  chip.radius = theme.radius[2]
+  chip.min_height = theme.line_height[2] + 2 * theme.space[1]
+  chip.font_size = theme.font_size[2]
+  chip.line_height = theme.line_height[2]
+  chip.icon_size = theme.space[4]
+  chip.gap = theme.space[2]
   chip.background = nil
   chip.foreground = result.muted
   chip.hover_background = result.hover
@@ -41,6 +51,7 @@ local function palette(theme)
   chip.selected_foreground = result.on_active
   chip.selected_hover_background = result.active_hover
   chip.selected_pressed_background = result.active_hover
+  chip.focused_border = nil
   bar_theme.components.chip = chip
   result.theme = bar_theme
 
