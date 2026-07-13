@@ -522,7 +522,7 @@ local NotificationCard = kw.stateful({
       }, kw.icon({
         name = "window-close",
         size = theme.space[3],
-        color = self.hovered and theme.colors.text_tertiary or theme.colors.quaternary_system_fill,
+        color = self.hovered and theme.colors.text_tertiary or theme.colors.surface,
       })),
     })
 
