@@ -13,9 +13,6 @@ local function palette(theme)
     muted = scheme.text_secondary,
     subtle = scheme.text_tertiary,
     hover = scheme.fill_secondary,
-    active = scheme.fill,
-    active_hover = scheme.fill,
-    on_active = scheme.text,
     error = scheme.danger,
     on_error = scheme.on_danger,
     success = scheme.success,
@@ -27,8 +24,9 @@ local function palette(theme)
     space = theme.space,
   }
 
-  -- The bar uses Radix Badge size-3 metrics for primary status controls,
-  -- while keeping their colors neutral instead of accent-colored.
+  -- The bar uses Radix Badge size-3 metrics for primary status controls.
+  -- Unselected chips stay neutral; selected chips share the menu-item
+  -- highlight used by launcher and popup lists.
   local bar_theme = {}
   for key, value in pairs(theme) do bar_theme[key] = value end
   bar_theme.components = {}
@@ -47,10 +45,10 @@ local function palette(theme)
   chip.foreground = result.muted
   chip.hover_background = result.hover
   chip.pressed_background = result.hover
-  chip.selected_background = result.active
-  chip.selected_foreground = result.on_active
-  chip.selected_hover_background = result.active_hover
-  chip.selected_pressed_background = result.active_hover
+  chip.selected_background = theme.components.menu.item.selected_background
+  chip.selected_foreground = result.foreground
+  chip.selected_hover_background = theme.components.menu.item.selected_hover_background
+  chip.selected_pressed_background = theme.components.menu.item.selected_hover_background
   chip.focused_border = nil
   bar_theme.components.chip = chip
   result.theme = bar_theme
