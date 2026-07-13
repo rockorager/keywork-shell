@@ -18,8 +18,8 @@ Fix these in `../keywork`, then simplify here.
   exists, while branded apps without one must retain their normal icon.
   Keywork's `kw.icon` and `kw.icon_theme` now accept an explicit
   `symbolic = true`, with the preference included in icon-cache keys. Tint and
-  icon selection remain independent: the shell uses its secondary text color
-  without replacing exact regular icons.
+  icon selection remain independent: the shell only tints known monochrome
+  controls, while application and notification icons retain their own palette.
 - **D-Bus replies could not carry Unix file descriptors.** A safe logind
   delay inhibitor requires retaining the descriptor returned by `Inhibit`
   until the lock screen is compositor-confirmed. Keywork now decodes `h`

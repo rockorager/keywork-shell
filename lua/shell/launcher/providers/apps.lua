@@ -128,7 +128,6 @@ function M.load()
         title = app.name,
         subtitle = app.generic_name or app.comment,
         icon = app.icon,
-        icon_tint = true,
         search = search_fields(app),
         actions = entry_actions(app),
       })

@@ -296,20 +296,17 @@ function Server:notify(app_name, replaces_id, app_icon, summary, body, actions, 
   local image = image_data(hints["image-data"] or hints.image_data)
   local icon = icon_value(hints["image-path"] or hints.image_path)
     or icon_value(app_icon)
-  local icon_tint = false
   if not image and not icon then
     image = image_data(hints.icon_data)
   end
   if not image and not icon then
     local app = desktop_entry and xdg.lookup(desktop_entry) or nil
     icon = icon_value(app and app.icon) or icon_value(desktop_entry)
-    icon_tint = icon ~= nil
   end
   local notification = {
     id = id,
     app_name = tostring(app_name ~= "" and app_name or hints["desktop-entry"] or "Notification"),
     icon = icon,
-    icon_tint = icon_tint,
     image = image,
     desktop_entry = desktop_entry,
     summary = tostring(summary or ""),
@@ -492,7 +489,7 @@ local NotificationCard = kw.stateful({
       })
     else
       local icon_name = notification.icon
-      local icon_tint = notification.icon_tint == true
+      local icon_tint = false
       if not icon_name or icon_name == "" then
         icon_name = notification.urgency == 2 and "dialog-warning" or "dialog-information"
         icon_tint = true
