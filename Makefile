@@ -1,4 +1,6 @@
 KEYWORK ?= keywork
+EMMYLUA_CHECK ?= emmylua_check
+LUAFMT ?= luafmt
 CC ?= cc
 PKG_CONFIG ?= pkg-config
 PREFIX ?= $(HOME)/.local
@@ -45,13 +47,19 @@ IDLE_PROTOCOL_HEADER := $(WAYLAND_PROTOCOL_DIR)/ext-idle-notify-v1-client-protoc
 IDLE_PROTOCOL_CODE := $(WAYLAND_PROTOCOL_DIR)/ext-idle-notify-v1-protocol.c
 PAM_SERVICE := pam/keywork-shell
 
-.PHONY: all check run install install-app install-service install-pam reload-service clean
+.PHONY: all check lint fmt run install install-app install-service install-pam reload-service clean
 
 all: check
 
 check: $(AUTH_MODULE) $(WAYLAND_MODULE) $(SCRIPT) $(LOCK) $(BACKGROUND) $(STORYBOOK) $(MODULES)
 	for file in $(SCRIPT) $(LOCK) $(BACKGROUND) $(STORYBOOK) $(MODULES); do luajit -b $$file /tmp/keywork-shell-check.luac || exit 1; done
 	rm -f /tmp/keywork-shell-check.luac
+
+lint:
+	$(EMMYLUA_CHECK) lua --config .emmyrc.json
+
+fmt:
+	$(LUAFMT) lua --write
 
 $(AUTH_MODULE): $(AUTH_SOURCE)
 	mkdir -p $(@D)

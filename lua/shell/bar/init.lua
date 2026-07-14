@@ -13,55 +13,56 @@ M.height = 40
 -- hooks from refreshing on every rebuild.
 local palette_cache = {}
 local function palette_for(theme)
-  local cached = palette_cache[theme.color_scheme]
-  if not cached then
-    cached = colors.palette(theme)
-    palette_cache[theme.color_scheme] = cached
-  end
-  return cached
+    local cached = palette_cache[theme.color_scheme]
+    if not cached then
+        cached = colors.palette(theme)
+        palette_cache[theme.color_scheme] = cached
+    end
+    return cached
 end
 
 -- One bar per output. props: show_tray (SNI hosts register on D-Bus,
 -- so only one bar carries it).
 local Bar = kw.stateful({
-  build = function(self, context)
-    local theme = context.theme
-    local palette = palette_for(theme)
+    build = function(self, context)
+        local theme = context.theme
+        local palette = palette_for(theme)
 
-    local children = {
-      sway.Workspaces({ key = "sway-workspaces", colors = palette }),
-      kw.spacer(),
-    }
-    if self.props.show_tray then
-      children[#children + 1] = tray.Items({ key = "tray", colors = palette })
-    end
-    children[#children + 1] = status.Items({
-      key = "status",
-      colors = palette,
-      on_open_audio_settings = self.props.on_open_audio_settings,
-    })
+        local children = {
+            sway.Workspaces({ key = "sway-workspaces", colors = palette }),
+            kw.spacer(),
+        }
+        if self.props.show_tray then
+            children[#children + 1] = tray.Items({ key = "tray", colors = palette })
+        end
+        children[#children + 1] = status.Items({
+            key = "status",
+            colors = palette,
+            on_open_audio_settings = self.props.on_open_audio_settings,
+        })
 
-    return kw.theme({
-      data = palette.theme,
-      child = kw.column({
-        align = "stretch",
-        children = {
-          kw.expanded(kw.container({
-            background = palette.background,
-            vertical_align = "center",
-            padding = { x = theme.space[2], y = theme.space[1] },
-          },
-            kw.row({
-              spacing = theme.space[3],
-              align = "center",
-              children = children,
-            })
-          )),
-          kw.separator({}),
-        },
-      }),
-    })
-  end,
+        return kw.theme({
+            data = palette.theme,
+            child = kw.column({
+                align = "stretch",
+                children = {
+                    kw.expanded(
+                        kw.container({
+                            background = palette.background,
+                            vertical_align = "center",
+                            padding = { x = theme.space[2], y = theme.space[1] },
+                        },
+                            kw.row({
+                                spacing = theme.space[3],
+                                align = "center",
+                                children = children,
+                            }))
+                    ),
+                    kw.separator({}),
+                },
+            }),
+        })
+    end,
 })
 
 M.Bar = Bar

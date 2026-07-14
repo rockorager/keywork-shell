@@ -21,21 +21,21 @@
 local M = {}
 
 M.list = {
-  require("shell.launcher.providers.apps"),
-  require("shell.launcher.providers.power"),
+    require("shell.launcher.providers.apps"),
+    require("shell.launcher.providers.power"),
 }
 
 -- Entries from every provider, concatenated. sort_key is the ranking
 -- tiebreak so providers don't each have to precompute it.
 function M.load()
-  local entries = {}
-  for _, provider in ipairs(M.list) do
-    for _, entry in ipairs(provider.load()) do
-      entry.sort_key = entry.title:lower()
-      table.insert(entries, entry)
+    local entries = {}
+    for _, provider in ipairs(M.list) do
+        for _, entry in ipairs(provider.load()) do
+            entry.sort_key = entry.title:lower()
+            table.insert(entries, entry)
+        end
     end
-  end
-  return entries
+    return entries
 end
 
 return M
