@@ -64,10 +64,20 @@ local function audio_story_data()
         }
     end
 
-    local playback = vocaster(2, "sink", "Playback", true)
+    local playback = vocaster(2, "sink", "Playback")
+    local airpods = {
+        id = 12,
+        kind = "sink",
+        name = "bluez-output-airpods",
+        description = "Tim’s AirPods",
+        icon_name = "audio-headphones-bluetooth",
+        available = true,
+        default = true,
+        bus = "bluetooth",
+    }
     local host_mic = vocaster(6, "source", "Host Mic", true)
     return {
-        output = playback,
+        output = airpods,
         input = host_mic,
         outputs = {
             {
@@ -83,6 +93,7 @@ local function audio_story_data()
             },
             playback,
             vocaster(3, "sink", "Video Call"),
+            airpods,
         },
         inputs = {
             {
@@ -116,11 +127,12 @@ local function audio_story_data()
     }
 end
 
-local function defaults_audio_story()
-    return menu_story("menus/audio-defaults", "Audio — defaults only", 420, function(palette)
+local function outputs_audio_story()
+    return menu_story("menus/audio-defaults", "Audio — outputs", 420, function(palette)
         return audio.Menu({
             colors = palette,
             audio = audio_story_data(),
+            on_select = function(_) end,
             on_open_settings = function() end,
         })
     end)
@@ -303,7 +315,7 @@ return sb.book({
         lock_story("lock/compact-output", "Compact output", {
             viewport = { width = 640, height = 480 },
         }),
-        defaults_audio_story(),
+        outputs_audio_story(),
         audio_settings_window_story(),
         wifi_menu_story(),
         workspace_story(),

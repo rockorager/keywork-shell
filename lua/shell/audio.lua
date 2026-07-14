@@ -205,31 +205,30 @@ local function default_device_row(palette, kind, device)
     return device_row(palette, kind, device)
 end
 
-local function audio_menu(palette, audio, on_open_settings)
+local function audio_menu(palette, audio, on_select, on_open_settings)
     audio = audio or {}
-    return kw.menu({
-        child = kw.column({
+    local rows = { kw.menu_label({ text = "Output" }) }
+    for _, row in ipairs(device_rows(palette, "sink", audio.outputs or {}, on_select)) do
+        rows[#rows + 1] = row
+    end
+    rows[#rows + 1] = kw.menu_label({ text = "Input" })
+    rows[#rows + 1] = default_device_row(palette, "source", audio.input)
+    rows[#rows + 1] = kw.menu_separator({})
+    rows[#rows + 1] = kw.menu_item({
+        id = "audio-settings",
+        on_tap = on_open_settings,
+        child = kw.row({
+            spacing = palette.space[2],
+            align = "center",
             children = {
-                kw.menu_label({ text = "Output" }),
-                default_device_row(palette, "sink", audio.output),
-                kw.menu_label({ text = "Input" }),
-                default_device_row(palette, "source", audio.input),
-                kw.menu_separator({}),
-                kw.menu_item({
-                    id = "audio-settings",
-                    on_tap = on_open_settings,
-                    child = kw.row({
-                        spacing = palette.space[2],
-                        align = "center",
-                        children = {
-                            kw.icon({ name = "preferences-system-symbolic", color = palette.muted }),
-                            kw.expanded(menu_label("Advanced audio settings…", palette.muted)),
-                            kw.icon({ name = "pan-end-symbolic", color = palette.muted }),
-                        },
-                    }),
-                }),
+                kw.icon({ name = "preferences-system-symbolic", color = palette.muted }),
+                kw.expanded(menu_label("Advanced audio settings…", palette.muted)),
+                kw.icon({ name = "pan-end-symbolic", color = palette.muted }),
             },
         }),
+    })
+    return kw.menu({
+        child = kw.column({ children = rows }),
     })
 end
 
@@ -251,7 +250,12 @@ end
 
 local AudioMenu = kw.stateful({
     build = function(self)
-        return audio_menu(self.props.colors, self.props.audio, self.props.on_open_settings)
+        return audio_menu(
+            self.props.colors,
+            self.props.audio,
+            self.props.on_select,
+            self.props.on_open_settings
+        )
     end,
 })
 
@@ -275,6 +279,11 @@ local Audio = kw.stateful({
         if self.props.on_open_settings then self.props.on_open_settings() end
     end,
 
+    select_device = function(_, device)
+        local ok, err = M.set_default(device)
+        if not ok then log.warn("audio default selection failed", err or "unknown") end
+    end,
+
     build = function(self)
         local palette = self.props.colors
         local audio = self.audio or {}
@@ -288,9 +297,15 @@ local Audio = kw.stateful({
                     gap = palette.space[1],
                     width = 420,
                     content = function()
-                        return audio_menu(palette, self.audio, function()
-                            self:open_settings()
-                        end)
+                        return audio_menu(
+                            palette, self.audio,
+                            function(device)
+                                self:select_device(device)
+                            end,
+                            function()
+                                self:open_settings()
+                            end
+                        )
                     end,
                     on_close = function()
                         self:set_state(function(state)
