@@ -8,6 +8,10 @@
     ]
   },
   "workspace": {
+    "library": [
+      "~/.local/share/keywork/emmylua",
+      "./types"
+    ],
     "workspaceRoots": [
       "./lua"
     ]

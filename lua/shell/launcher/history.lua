@@ -17,9 +17,10 @@ function M.load()
     if not file then
         return counts
     end
-    for line in file:lines() do
-        local count, id = line:match("^(%d+)%s+(.+)$")
-        if count then
+    for raw_line in file:lines() do
+        local line = tostring(raw_line)
+        local count, id = string.match(line, "^(%d+)%s+(.+)$")
+        if count and id then
             -- Pre-provider rows were bare desktop ids; adopt them into the
             -- apps namespace.
             if not id:find(":", 1, true) then

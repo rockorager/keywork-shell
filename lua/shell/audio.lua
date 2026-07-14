@@ -12,6 +12,7 @@ local M = {}
 M.settings_width = 520
 M.settings_height = 540
 
+---@type keywork.audio.Monitor?
 local active_monitor = nil
 
 local audio_service = service.define("shell.audio", function(self)
@@ -73,7 +74,7 @@ function M.adjust(kind, action, count)
     else
         return nil, "invalid audio action"
     end
-    if ok == nil and err then return nil, err end
+    if not ok and err then return nil, err end
     return monitor:default(target_kind)
 end
 

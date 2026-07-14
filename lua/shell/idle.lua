@@ -35,6 +35,14 @@ local function run(argv, description)
     end)
 end
 
+---@class IdleController
+---@field actions     table<number, 'dim' | 'lock' | 'power'>
+---@field dimmed      boolean
+---@field outputs_off boolean
+---@field stopped     boolean
+---@field fd_watch    keywork.loop.FdWatch
+---@field client      shell.wayland.Client
+---@field lock        function
 local Controller = {}
 Controller.__index = Controller
 
@@ -92,6 +100,7 @@ function M.start(options)
         return nil
     end
 
+    ---@type IdleController
     local controller = setmetatable({
         client = client,
         lock = options.lock,
@@ -105,7 +114,13 @@ function M.start(options)
         stopped = false,
     }, Controller)
 
-    controller.fd_watch = loop.fd(client:fd(), { read = true })
+    local fd = client:fd()
+    if not fd then
+        client:close()
+        log.warn("idle manager disabled", "Wayland connection has no file descriptor")
+        return nil
+    end
+    controller.fd_watch = loop.fd(fd, { read = true })
     loop.spawn(function()
         for event in controller.fd_watch:events() do
             if event.err or event.hup then

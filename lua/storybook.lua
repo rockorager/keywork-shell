@@ -256,8 +256,8 @@ end
 
 local notification_server = {}
 
-function notification_server:dismiss(_) end
-function notification_server:invoke(_, _, _) end
+function notification_server.dismiss(_) end
+function notification_server.invoke(_, _, _) end
 
 local next_notification_id = 1
 local function notification_story(id, name, notification)

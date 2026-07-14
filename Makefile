@@ -56,10 +56,10 @@ check: $(AUTH_MODULE) $(WAYLAND_MODULE) $(SCRIPT) $(LOCK) $(BACKGROUND) $(STORYB
 	rm -f /tmp/keywork-shell-check.luac
 
 lint:
-	$(EMMYLUA_CHECK) lua --config .emmyrc.json
+	$(EMMYLUA_CHECK) lua --config .emmyrc.json --warnings-as-errors
 
 fmt:
-	$(LUAFMT) lua --write
+	$(LUAFMT) lua types --write
 
 $(AUTH_MODULE): $(AUTH_SOURCE)
 	mkdir -p $(@D)

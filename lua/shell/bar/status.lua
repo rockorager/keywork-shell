@@ -107,7 +107,7 @@ local StatusItems = kw.stateful({
         self.time = clock.format_bar(self.time or os.time())
     end,
 
-    build = function(self, context)
+    build = function(self, _context)
         local palette = self.props.colors
         local battery = self.battery or {}
         return kw.row({

@@ -157,6 +157,7 @@ local network_service = service.define("shell.bar.network", function(self)
     -- pill can fall back to its optimistic guess.
     local st = { operstate = "down", essid = "", percent = nil }
 
+    ---@type { bus: keywork.dbus.Bus?, station: string?, percent: number?, refresh: function? }
     local net = { bus = nil, station = nil, percent = nil }
 
     -- Commands published with the snapshot. They are plain closures over the
@@ -210,6 +211,7 @@ local network_service = service.define("shell.bar.network", function(self)
             return nil
         end
         local scanning = false
+        ---@type table<string, table?>
         local network_props = {}
         for path, interfaces in pairs((managed_reply.args or {})[1] or {}) do
             if path == station and interfaces[IWD_STATION] then
@@ -266,7 +268,7 @@ local network_service = service.define("shell.bar.network", function(self)
             })
         end
         -- The cached agent percent is stale either way; force a fresh read.
-        net.refresh()
+        assert(net.refresh)()
         return reply, err
     end
 
@@ -393,7 +395,8 @@ local network_service = service.define("shell.bar.network", function(self)
                         Changed = {
                             in_signature = "oy",
                             call = function(_, _device, level)
-                                net.percent = IWD_LEVEL_PERCENT[(tonumber(level) or 4) + 1] or 10
+                                local index = math.floor(tonumber(level) or 4) + 1
+                                net.percent = IWD_LEVEL_PERCENT[index] or 10
                                 update_network()
                             end,
                         },
@@ -513,6 +516,7 @@ end)
 
 local Network = kw.stateful({
     init = function(self)
+        self.wifi_refresh_pending = false --[[@as boolean]]
         self.wifi_tap = function()
             self:toggle_wifi_menu()
         end
@@ -572,6 +576,8 @@ local Network = kw.stateful({
             while true do
                 self.wifi_refresh_pending = false
                 self:refresh_wifi_list_now()
+                -- EmmyLua 0.24 narrows this mutable widget field from the assignment above.
+                ---@diagnostic disable-next-line: unnecessary-if
                 if not self.wifi_refresh_pending then
                     break
                 end

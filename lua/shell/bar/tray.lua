@@ -28,8 +28,8 @@ local function best_icon_pixmap(pixmaps)
     local best = nil
     local best_area = -1
     for _, pixmap in ipairs(pixmaps or {}) do
-        local width = tonumber(pixmap[1]) or 0
-        local height = tonumber(pixmap[2]) or 0
+        local width = math.floor(tonumber(pixmap[1]) or 0)
+        local height = math.floor(tonumber(pixmap[2]) or 0)
         local pixels = pixmap[3]
         local area = width * height
         if width > 0 and height > 0 and pixels and area > best_area then
@@ -49,6 +49,25 @@ local function create_tray_host(on_change)
         return nil
     end
 
+    ---@class TrayHost
+    ---@field bus             keywork.dbus.Bus
+    ---@field items           table<string, table?>
+    ---@field item_order      string[]
+    ---@field host_registered boolean
+    ---@field on_change?      function
+    ---@field name?           keywork.dbus.OwnedName
+    ---@field exported?       keywork.dbus.ExportedObject
+    ---@field emit            function
+    ---@field changed         function
+    ---@field remove_item     function
+    ---@field register_item   function
+    ---@field item_ids        function
+    ---@field visible_items   function
+    ---@field activate        function
+    ---@field close           function
+    ---@type TrayHost
+    -- Methods are attached immediately below; EmmyLua 0.24 checks this table before those assignments.
+    ---@diagnostic disable-next-line: missing-fields
     local host = {
         bus = bus,
         items = {},
@@ -202,7 +221,7 @@ local function create_tray_host(on_change)
         end
         if self.name then self.name:release() end
         if self.exported then self.exported:unexport() end
-        if self.bus then self.bus:close() end
+        self.bus:close()
     end
 
     local name_ok, name = pcall(function()

@@ -63,8 +63,8 @@ function M.serve(handlers)
                 ConfigureBackground = {
                     in_signature = "s",
                     call = function(_, payload)
-                        local ok, err = handlers.configure_background(payload)
-                        assert(ok, err)
+                        local configured, err = handlers.configure_background(payload)
+                        assert(configured, err)
                     end,
                 },
             },

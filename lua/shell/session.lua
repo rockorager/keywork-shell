@@ -10,6 +10,12 @@ local LOGIND_PATH = "/org/freedesktop/login1"
 local LOGIND_MANAGER = "org.freedesktop.login1.Manager"
 local LOCK_READY_TIMEOUT_MS = 4500
 
+---@class SessionController
+---@field lock_process?       keywork.process.Process
+---@field lock_ready          boolean
+---@field sleep_inhibitor?    keywork.dbus.UnixFd
+---@field sleep_subscription? keywork.dbus.Subscription
+---@field system_bus?         keywork.dbus.Bus
 local Controller = {}
 Controller.__index = Controller
 
@@ -72,7 +78,9 @@ function Controller:lock()
 end
 
 function Controller:acquire_sleep_inhibitor()
-    local reply, err = self.system_bus:call({
+    local bus = self.system_bus
+    if not bus then return end
+    local reply, err = bus:call({
         destination = LOGIND,
         path = LOGIND_PATH,
         interface = LOGIND_MANAGER,
@@ -163,6 +171,7 @@ function Controller:stop()
 end
 
 function M.start()
+    ---@type SessionController
     local controller = setmetatable({
         lock_process = nil,
         lock_ready = false,

@@ -98,6 +98,16 @@ M.Level = Level
 local Controller = {}
 Controller.__index = Controller
 
+---@class OsdController
+---@field current?          table
+---@field hide_timer?       keywork.loop.Timer
+---@field running           boolean
+---@field backlight_name?   string
+---@field system_bus?       keywork.dbus.Bus
+---@field visible           fun(self: OsdController): table?
+---@field adjust_audio      fun(self: OsdController, kind: string, action: string): boolean
+---@field adjust_brightness fun(self: OsdController, action: string): boolean
+
 function Controller:changed()
     if self.on_change then
         self.on_change()
@@ -119,6 +129,8 @@ function Controller:show(kind, value, muted)
     local previous = self.hide_timer
     local timer = loop.timer({ delay = DISPLAY_MS / 1000 })
     self.hide_timer = timer
+    -- EmmyLua 0.24 retains the post-assignment type for the pre-assignment local.
+    ---@diagnostic disable-next-line: unnecessary-if
     if previous then
         previous:cancel()
     end
@@ -145,6 +157,8 @@ function Controller:enqueue(key, action, run_job)
         count = 1,
         run = run_job,
     }
+    -- EmmyLua 0.24 narrows mutable instance fields from their initializer.
+    ---@diagnostic disable-next-line: unnecessary-if
     if self.running then
         return
     end
@@ -186,7 +200,7 @@ local function read_number(path)
     return value and tonumber(value:match("^%s*(%d+)")) or nil
 end
 
-function Controller:read_backlight(name)
+function Controller.read_backlight(name)
     local root = "/sys/class/backlight/" .. name
     local value = read_number(root .. "/brightness")
     local maximum = read_number(root .. "/max_brightness")
@@ -203,10 +217,12 @@ end
 function Controller:backlight()
     local preferred = os.getenv("KEYWORK_BACKLIGHT_DEVICE")
     if preferred and preferred ~= "" then
-        return self:read_backlight(preferred)
+        return self.read_backlight(preferred)
     end
+    -- EmmyLua 0.24 narrows mutable instance fields from their initializer.
+    ---@diagnostic disable-next-line: unnecessary-if
     if self.backlight_name then
-        local current = self:read_backlight(self.backlight_name)
+        local current = self.read_backlight(self.backlight_name)
         if current then
             return current
         end
@@ -221,7 +237,7 @@ function Controller:backlight()
         return left.name < right.name
     end)
     for _, entry in ipairs(entries) do
-        local current = self:read_backlight(entry.name)
+        local current = self.read_backlight(entry.name)
         if current then
             self.backlight_name = entry.name
             return current
@@ -232,6 +248,8 @@ function Controller:backlight()
 end
 
 function Controller:system()
+    -- EmmyLua 0.24 narrows mutable instance fields from their initializer.
+    ---@diagnostic disable-next-line: unnecessary-if
     if self.system_bus then
         return self.system_bus
     end
@@ -286,11 +304,13 @@ function Controller:adjust_brightness(action)
 end
 
 function M.new(on_change)
-    return setmetatable({
+    ---@type OsdController
+    local controller = setmetatable({
         on_change = on_change,
         jobs = {},
         running = false,
     }, Controller)
+    return controller
 end
 
 return M

@@ -4,7 +4,9 @@ local service = require("keywork.service")
 local M = {}
 
 local function seconds_until_next_minute()
-    return 60 - os.date("*t").sec
+    ---@type { sec: integer }
+    local now = os.date("*t") --[[@as { sec: integer }]]
+    return 60 - now.sec
 end
 
 local clock_service = service.define("shell.clock", function(self)

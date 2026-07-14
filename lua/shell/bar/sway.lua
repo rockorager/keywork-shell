@@ -11,6 +11,22 @@ local IPC_COMMAND = 0
 local IPC_GET_WORKSPACES = 1
 local IPC_SUBSCRIBE = 2
 
+---@class SwayWorkspace
+---@field name    string
+---@field focused boolean
+---@field urgent  boolean
+
+---@class SwaySnapshot
+---@field workspaces SwayWorkspace[]
+---@field connected  boolean
+---@field switch?    fun(name: string)
+
+---@class SwayClient
+---@field socket     keywork.loop.Socket
+---@field buffer     string
+---@field workspaces SwayWorkspace[]
+---@field connected  boolean
+
 local function le32(value)
     return string.char(
         bit.band(value, 0xff),
@@ -39,7 +55,7 @@ end
 
 local function parse_workspaces(payload)
     local workspaces = {}
-    local decoded = json.decode(payload)
+    local decoded = json.decode(payload) --[[@as table[]?]]
     for _, object in ipairs(decoded or {}) do
         if object.name then
             table.insert(workspaces, {
@@ -64,6 +80,8 @@ local function handle_sway_frame(client, message_type, payload)
     return false
 end
 
+---@param client SwayClient
+---@return boolean
 local function drain_sway(client)
     local changed = false
     while #client.buffer >= 14 do
@@ -85,6 +103,8 @@ end
 
 -- The published snapshot carries the switch command as a closure over the
 -- service's client, so widgets can act without owning the socket.
+---@param client SwayClient
+---@return SwaySnapshot
 local function snapshot(client)
     return {
         workspaces = client.workspaces,
@@ -97,6 +117,7 @@ local function snapshot(client)
     }
 end
 
+---@type keywork.service.Service<SwaySnapshot>
 local sway_service = service.define("shell.bar.sway", function(self)
     local path = os.getenv("SWAYSOCK")
     local socket = path and path ~= "" and loop.connect(path) or nil
@@ -105,6 +126,7 @@ local sway_service = service.define("shell.bar.sway", function(self)
         return
     end
 
+    ---@type SwayClient
     local client = {
         socket = socket,
         buffer = "",

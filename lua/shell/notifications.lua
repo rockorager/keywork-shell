@@ -128,7 +128,7 @@ local function icon_value(value)
     end
     if value:sub(1, 7) == "file://" then
         value = value:sub(8):gsub("%%(%x%x)", function(hex)
-            return string.char(tonumber(hex, 16))
+            return string.char(assert(tonumber(hex, 16)))
         end)
     end
     return value
@@ -165,6 +165,22 @@ end
 local Server = {}
 Server.__index = Server
 
+---@class ShellNotification
+---@field id          integer
+---@field generation  integer
+---@field timeout_ms? number
+---@field actions     table[]
+---@field resident    boolean
+
+---@class NotificationServer
+---@field by_id      table<integer, ShellNotification>
+---@field next_id    integer
+---@field generation integer
+---@field exported?  keywork.dbus.ExportedObject
+---@field notify     function
+---@field remove     function
+---@field visible    fun(self: NotificationServer, limit?: integer): ShellNotification[]
+
 function Server:changed()
     if self.on_change then
         self.on_change()
@@ -182,13 +198,15 @@ end
 
 function Server:allocate_id()
     local first = self.next_id
-    repeat
+    while true do
         local id = self.next_id
         self.next_id = id >= MAX_ID and 1 or id + 1
         if not self.by_id[id] then
             return id
         end
-    until self.next_id == first
+        local next_id = self.next_id
+        if next_id == first then break end
+    end
     error("notification id space exhausted")
 end
 
@@ -264,6 +282,7 @@ function Server:visible(limit)
     return result
 end
 
+---@param notification ShellNotification
 function Server:schedule_expiry(notification)
     if not notification.timeout_ms then
         return
@@ -272,7 +291,7 @@ function Server:schedule_expiry(notification)
     local generation = notification.generation
     loop.spawn(function()
         loop.sleep(notification.timeout_ms)
-        local current = self.by_id[id]
+        local current = self.by_id[id] --[[@as ShellNotification?]]
         if current and current.generation == generation then
             self:remove(id, CLOSE_EXPIRED)
         end
@@ -345,6 +364,7 @@ function M.serve(on_change)
         return nil
     end
 
+    ---@type NotificationServer
     local server = setmetatable({
         bus = bus,
         name = name,

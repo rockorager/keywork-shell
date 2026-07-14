@@ -13,6 +13,7 @@ local session = require("shell.session")
 -- App-level state shared by the window set. Anything that decides which
 -- windows exist lives here and flips via kw.app.invalidate(); widget
 -- state (kw.stateful) is per-window runtime.
+---@type { audio_settings_open: boolean, launcher_open: boolean }
 local shell = {
     audio_settings_open = false,
     launcher_open = false,
