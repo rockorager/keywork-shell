@@ -5,7 +5,7 @@ local bar_colors = require("shell.bar.colors")
 local bar_util = require("shell.bar.util")
 local lock = require("shell.lock")
 local network = require("shell.bar.network")
-local sway = require("shell.bar.sway")
+local workspaces = require("shell.bar.workspaces")
 local notifications = require("shell.notifications")
 local osd = require("shell.osd")
 
@@ -198,17 +198,49 @@ local function workspace_story()
                         background = palette.background,
                         vertical_align = "center",
                         padding = { x = theme.space[2], y = theme.space[1] },
-                        child = sway.Switcher({
+                        child = workspaces.Switcher({
                             colors = palette,
-                            sway = {
+                            state = {
                                 connected = true,
                                 workspaces = {
-                                    { name = "1" },
-                                    { name = "2", focused = true },
-                                    { name = "3" },
-                                    { name = "4", urgent = true },
+                                    {
+                                        id = 1,
+                                        name = "1",
+                                        outputs = {},
+                                        active = false,
+                                        urgent = false,
+                                        hidden = false,
+                                        can_activate = true,
+                                    },
+                                    {
+                                        id = 2,
+                                        name = "2",
+                                        outputs = {},
+                                        active = true,
+                                        urgent = false,
+                                        hidden = false,
+                                        can_activate = true,
+                                    },
+                                    {
+                                        id = 3,
+                                        name = "3",
+                                        outputs = {},
+                                        active = false,
+                                        urgent = false,
+                                        hidden = false,
+                                        can_activate = true,
+                                    },
+                                    {
+                                        id = 4,
+                                        name = "4",
+                                        outputs = {},
+                                        active = false,
+                                        urgent = true,
+                                        hidden = false,
+                                        can_activate = true,
+                                    },
                                 },
-                                switch = function(_) end,
+                                activate = function(_) end,
                             },
                         }),
                     }),

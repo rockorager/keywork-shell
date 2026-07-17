@@ -23,7 +23,7 @@ MODULES := \
 	lua/shell/bar/colors.lua \
 	lua/shell/bar/network.lua \
 	lua/shell/bar/status.lua \
-	lua/shell/bar/sway.lua \
+	lua/shell/bar/workspaces.lua \
 	lua/shell/bar/tray.lua \
 	lua/shell/bar/util.lua \
 	lua/shell/notifications.lua \
@@ -45,6 +45,12 @@ WAYLAND_PROTOCOL_DIR := .build/wayland-protocols
 IDLE_PROTOCOL_XML := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)/staging/ext-idle-notify/ext-idle-notify-v1.xml
 IDLE_PROTOCOL_HEADER := $(WAYLAND_PROTOCOL_DIR)/ext-idle-notify-v1-client-protocol.h
 IDLE_PROTOCOL_CODE := $(WAYLAND_PROTOCOL_DIR)/ext-idle-notify-v1-protocol.c
+WORKSPACE_PROTOCOL_XML := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)/staging/ext-workspace/ext-workspace-v1.xml
+WORKSPACE_PROTOCOL_HEADER := $(WAYLAND_PROTOCOL_DIR)/ext-workspace-v1-client-protocol.h
+WORKSPACE_PROTOCOL_CODE := $(WAYLAND_PROTOCOL_DIR)/ext-workspace-v1-protocol.c
+OUTPUT_POWER_PROTOCOL_XML := protocols/wlr-output-power-management-unstable-v1.xml
+OUTPUT_POWER_PROTOCOL_HEADER := $(WAYLAND_PROTOCOL_DIR)/wlr-output-power-management-unstable-v1-client-protocol.h
+OUTPUT_POWER_PROTOCOL_CODE := $(WAYLAND_PROTOCOL_DIR)/wlr-output-power-management-unstable-v1-protocol.c
 PAM_SERVICE := pam/keywork-shell
 
 .PHONY: all check lint fmt run install install-app install-service install-pam reload-service clean
@@ -75,11 +81,27 @@ $(IDLE_PROTOCOL_CODE): $(IDLE_PROTOCOL_XML)
 	mkdir -p $(@D)
 	wayland-scanner private-code $< $@
 
-$(WAYLAND_MODULE): $(WAYLAND_SOURCE) $(IDLE_PROTOCOL_HEADER) $(IDLE_PROTOCOL_CODE)
+$(WORKSPACE_PROTOCOL_HEADER): $(WORKSPACE_PROTOCOL_XML)
+	mkdir -p $(@D)
+	wayland-scanner client-header $< $@
+
+$(WORKSPACE_PROTOCOL_CODE): $(WORKSPACE_PROTOCOL_XML)
+	mkdir -p $(@D)
+	wayland-scanner private-code $< $@
+
+$(OUTPUT_POWER_PROTOCOL_HEADER): $(OUTPUT_POWER_PROTOCOL_XML)
+	mkdir -p $(@D)
+	wayland-scanner client-header $< $@
+
+$(OUTPUT_POWER_PROTOCOL_CODE): $(OUTPUT_POWER_PROTOCOL_XML)
+	mkdir -p $(@D)
+	wayland-scanner private-code $< $@
+
+$(WAYLAND_MODULE): $(WAYLAND_SOURCE) $(IDLE_PROTOCOL_HEADER) $(IDLE_PROTOCOL_CODE) $(WORKSPACE_PROTOCOL_HEADER) $(WORKSPACE_PROTOCOL_CODE) $(OUTPUT_POWER_PROTOCOL_HEADER) $(OUTPUT_POWER_PROTOCOL_CODE)
 	mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Wall -Wextra -Werror -fPIC -shared \
 		-I$(WAYLAND_PROTOCOL_DIR) $$($(PKG_CONFIG) --cflags luajit wayland-client) \
-		-o $@ $(WAYLAND_SOURCE) $(IDLE_PROTOCOL_CODE) $(LDFLAGS) \
+		-o $@ $(WAYLAND_SOURCE) $(IDLE_PROTOCOL_CODE) $(WORKSPACE_PROTOCOL_CODE) $(OUTPUT_POWER_PROTOCOL_CODE) $(LDFLAGS) \
 		$$($(PKG_CONFIG) --libs wayland-client)
 
 run: check

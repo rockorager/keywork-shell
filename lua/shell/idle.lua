@@ -64,11 +64,19 @@ function Controller:handle(event)
         self.lock()
     elseif action == "power" then
         if event.state == "idled" then
-            self.outputs_off = true
-            run({ "swaymsg", "output * power off" }, "idle output power off")
+            local ok, err = self.client:set_outputs_power(false)
+            if ok then
+                self.outputs_off = true
+            else
+                log.warn("idle output power off failed", err or "unknown")
+            end
         elseif self.outputs_off then
-            self.outputs_off = false
-            run({ "swaymsg", "output * power on" }, "idle output power on")
+            local ok, err = self.client:set_outputs_power(true)
+            if ok then
+                self.outputs_off = false
+            else
+                log.warn("idle output power on failed", err or "unknown")
+            end
         end
     end
 end
@@ -78,6 +86,13 @@ function Controller:stop()
         return
     end
     self.stopped = true
+    if self.outputs_off then
+        local ok, err = self.client:set_outputs_power(true)
+        if not ok then
+            log.warn("idle output power restore failed", err or "unknown")
+        end
+        self.outputs_off = false
+    end
     self.fd_watch:cancel()
     self.client:close()
 end

@@ -104,6 +104,7 @@ return kw.app({
                 },
                 child = bar.Bar({
                     key = "bar",
+                    output = output.name,
                     show_tray = index == 1,
                     on_open_audio_settings = function()
                         set_audio_settings_open(true)

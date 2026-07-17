@@ -2,8 +2,8 @@ local kw = require("keywork")
 
 local colors = require("shell.bar.colors")
 local status = require("shell.bar.status")
-local sway = require("shell.bar.sway")
 local tray = require("shell.bar.tray")
+local workspaces = require("shell.bar.workspaces")
 
 local M = {}
 
@@ -21,15 +21,19 @@ local function palette_for(theme)
     return cached
 end
 
--- One bar per output. props: show_tray (SNI hosts register on D-Bus,
--- so only one bar carries it).
+-- One bar per output. props: output and show_tray (SNI hosts register on
+-- D-Bus, so only one bar carries it).
 local Bar = kw.stateful({
     build = function(self, context)
         local theme = context.theme
         local palette = palette_for(theme)
 
         local children = {
-            sway.Workspaces({ key = "sway-workspaces", colors = palette }),
+            workspaces.Workspaces({
+                key = "workspaces",
+                colors = palette,
+                output = self.props.output,
+            }),
             kw.spacer(),
         }
         if self.props.show_tray then
