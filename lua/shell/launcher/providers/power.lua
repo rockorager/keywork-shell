@@ -1,10 +1,10 @@
--- Session and power actions provider: static entries that drive
--- systemd and the compositor. The subtitle shows the exact command an
--- entry runs.
+-- Session and power actions provider. Command entries show their exact
+-- argv; native actions name the service handling them.
 
 local loop = require("keywork.loop")
 local log = require("keywork.log")
 local process = require("keywork.process")
+local session = require("shell.session")
 
 local M = {}
 
@@ -42,8 +42,9 @@ local commands = {
         id = "logout",
         title = "Log Out",
         icon = "system-log-out-symbolic",
-        keywords = "logout exit sway",
-        argv = { "swaymsg", "exit" },
+        keywords = "logout exit session",
+        subtitle = "Keywork compositor",
+        action = session.logout,
     },
     {
         id = "restart-shell",
@@ -54,13 +55,20 @@ local commands = {
     },
 }
 
-local function run(argv, ctx)
+local function run(command, ctx)
     loop.spawn(function()
-        local result, err = process.capture(argv)
-        if not result then
-            log.warn("power action failed", argv[1], err or "unknown")
-        elseif not result.ok then
-            log.warn("power action failed", argv[1], result.stderr or "")
+        if command.action then
+            local ok, err = command.action()
+            if not ok then
+                log.warn("power action failed", command.id, err or "unknown")
+            end
+        else
+            local result, err = process.capture(command.argv)
+            if not result then
+                log.warn("power action failed", command.argv[1], err or "unknown")
+            elseif not result.ok then
+                log.warn("power action failed", command.argv[1], result.stderr or "")
+            end
         end
         -- Dismiss after the command finishes, mirroring the apps provider;
         -- these are all short-lived. Restart Shell never gets here — the
@@ -75,7 +83,7 @@ function M.load()
         table.insert(entries, {
             id = "power:" .. command.id,
             title = command.title,
-            subtitle = table.concat(command.argv, " "),
+            subtitle = command.subtitle or table.concat(command.argv, " "),
             icon = command.icon,
             -- These resolve to monochrome glyphs in most themes; tint them
       -- with the theme text color so they read on the highlight.
@@ -88,7 +96,7 @@ function M.load()
                 {
                     title = "Run",
                     run = function(ctx)
-                        run(command.argv, ctx)
+                        run(command, ctx)
                     end,
                 },
             },

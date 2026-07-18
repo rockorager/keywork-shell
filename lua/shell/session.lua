@@ -170,6 +170,17 @@ function Controller:stop()
     end
 end
 
+function M.logout()
+    local result, err = process.capture({ "keyworkctl", "quit" })
+    if not result then
+        return nil, err or "could not contact the compositor"
+    end
+    if not result.ok then
+        return nil, result.stderr or "compositor rejected logout"
+    end
+    return true
+end
+
 function M.start()
     ---@type SessionController
     local controller = setmetatable({
