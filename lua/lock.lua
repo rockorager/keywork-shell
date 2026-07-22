@@ -82,17 +82,24 @@ return kw.app({
     end,
     windows = function(ctx)
         local windows = {}
-        for _, output in ipairs(ctx.outputs) do
-            windows[#windows + 1] = kw.window({
-                id = "lock:" .. output.name,
-                output = output.name,
+        local theme = kw.theme_for(ctx)
+        for index, output in ipairs(ctx.outputs) do
+            -- Session lock requires a surface for every output, but only one
+            -- surface should own the password input's editing state.
+            local child = kw.box({ background = theme.colors.background }, kw.spacer())
+            if index == 1 then
                 child = lock.View({
                     key = "lock-view",
                     username = username,
                     avatar_path = user_avatar_path,
                     status = status,
                     on_submit = submit,
-                }),
+                })
+            end
+            windows[#windows + 1] = kw.window({
+                id = "lock:" .. output.name,
+                output = output.name,
+                child = child,
             })
         end
         return windows
