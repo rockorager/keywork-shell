@@ -19,6 +19,22 @@ local shell = {
     launcher_open = false,
 }
 
+---@param outputs keywork.Output[]
+---@return keywork.Output?
+local function largest_output(outputs)
+    ---@type keywork.Output?
+    local selected = nil
+    local selected_area = 0.0
+    for _, output in ipairs(outputs) do
+        local area = output.width * output.height
+        if not selected or area > selected_area or (area == selected_area and output.name < selected.name) then
+            selected = output
+            selected_area = area
+        end
+    end
+    return selected
+end
+
 local function set_audio_settings_open(open)
     if shell.audio_settings_open == open then
         return
@@ -90,6 +106,7 @@ return kw.app({
     end,
     windows = function(ctx)
         local windows = {}
+        local transient_output = largest_output(ctx.outputs)
         background.append_windows(windows, ctx.outputs)
         for index, output in ipairs(ctx.outputs) do
             windows[#windows + 1] = kw.window({
@@ -134,10 +151,10 @@ return kw.app({
         -- The launcher window's existence follows app state: declaring it
         -- creates the surface, dropping it destroys it. No anchors, so the
         -- compositor centers it on the output.
-        if shell.launcher_open and ctx.outputs[1] then
+        if shell.launcher_open and transient_output then
             windows[#windows + 1] = kw.window({
                 id = "launcher",
-                output = ctx.outputs[1].name,
+                output = transient_output.name,
                 width = launcher.width,
                 height = launcher.height,
                 layer_shell = {
@@ -154,10 +171,10 @@ return kw.app({
         end
 
         local level = osd_controller:visible()
-        if level and ctx.outputs[1] then
+        if level and transient_output then
             windows[#windows + 1] = kw.window({
                 id = "osd",
-                output = ctx.outputs[1].name,
+                output = transient_output.name,
                 width = osd.width,
                 height = osd.height,
                 layer_shell = {
@@ -174,13 +191,12 @@ return kw.app({
             })
         end
 
-        if notification_server and ctx.outputs[1] and #notification_server:visible() > 0 then
-            local output = ctx.outputs[1]
+        if notification_server and transient_output and #notification_server:visible() > 0 then
             -- A zero-zone layer surface is already placed inside the bar's
             -- exclusive zone; this margin is only the visual gap below it.
             windows[#windows + 1] = kw.window({
                 id = "notifications",
-                output = output.name,
+                output = transient_output.name,
                 width = notifications.width,
                 height = "content",
                 layer_shell = {
