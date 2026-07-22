@@ -13,6 +13,11 @@ Fix these in `../keywork`, then simplify here.
 
 ## Resolved
 
+- **Large Vulkan backgrounds could fail on higher-resolution outputs.** Atlas
+  growth and staging-buffer growth shared an eight-retry budget, so a 4K
+  wallpaper exhausted it even though both resources could still grow. Keywork
+  now grows staging as needed and only stops atlas recovery after one clean
+  current-frame repack at the device limit.
 - **Managed top-level windows could not reflect compositor closes into app
   state.** Dropping a declaration destroyed a window, but closing an
   `xdg_toplevel` had no callback to clear the state that declared it, so the
